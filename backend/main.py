@@ -11,9 +11,15 @@ from backend.database import init_db, SessionLocal
 from backend.models import ScrapeLog
 from backend.scraper import scrape_profile
 
+log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+os.makedirs(log_dir, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(os.path.join(log_dir, "daxiao.log"), encoding="utf-8"),
+    ],
 )
 logger = logging.getLogger("daxiao")
 

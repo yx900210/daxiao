@@ -214,18 +214,21 @@ def _start_process_background():
         db.close()
 
         pending_ids = [row[0] for row in pending]
-        logger.info(f"[后台处理] 发现 {len(pending_ids)} 个待处理视频")
+        total = len(pending_ids)
+        logger.info(f"[后台处理] 发现 {total} 个待处理视频")
 
-        for vid in pending_ids:
+        for i, vid in enumerate(pending_ids):
+            logger.info(f"[后台处理] ({i+1}/{total}) 开始处理视频 id={vid}")
             try:
                 loop = _asyncio.new_event_loop()
                 _asyncio.set_event_loop(loop)
-                loop.run_until_complete(process_video(vid))
+                ok = loop.run_until_complete(process_video(vid))
                 loop.close()
+                logger.info(f"[后台处理] ({i+1}/{total}) id={vid} {'成功' if ok else '失败'}")
             except Exception as e:
-                logger.error(f"[后台处理] 视频 {vid} 失败: {e}")
+                logger.error(f"[后台处理] ({i+1}/{total}) id={vid} 异常: {e}")
 
-        logger.info("[后台处理] 全部完成")
+        logger.info("[后台处理] ====== 全部完成 ======")
 
     t = threading.Thread(target=_run, daemon=True)
     t.start()
