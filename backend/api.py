@@ -178,7 +178,7 @@ def update_setting(key: str, body: dict, db: Session = Depends(get_db)):
 def reset_all():
     import shutil
     import os as _os
-    from backend.config import SCREENSHOTS_DIR, DATA_DIR, DB_PATH
+    from backend.config import SCREENSHOTS_DIR, DATA_DIR, DB_PATH, DOUYIN_COOKIE, PLAYWRIGHT_PROXY
     from backend.database import engine
 
     engine.dispose()
@@ -195,6 +195,18 @@ def reset_all():
     if _os.path.exists(cf):
         _os.remove(cf)
     init_db()
+
+    db = next(get_db())
+    defaults = {
+        "douyin_cookie": DOUYIN_COOKIE,
+        "http_proxy": PLAYWRIGHT_PROXY or "http://nas.900210.top:53128",
+    }
+    for k, v in defaults.items():
+        if not db.query(Setting).get(k):
+            db.add(Setting(key=k, value=v or ""))
+    db.commit()
+    db.close()
+
     return {"ok": True, "msg": "所有数据已清空，数据库已重建"}
 
 

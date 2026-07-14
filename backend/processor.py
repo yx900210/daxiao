@@ -79,12 +79,27 @@ async def _fetch_video_url(page: Page, aweme_id: str) -> Optional[str]:
         try:
             data = json.loads(body)
         except json.JSONDecodeError:
-            logger.error(f"[{aweme_id}] API返回非JSON: {body[:200]}")
+            logger.error(f"[{aweme_id}] API返回非JSON: {body[:500]}")
             continue
 
         if "error" in data:
-            logger.error(f"[{aweme_id}] API错误: {body[:200]}")
+            logger.error(f"[{aweme_id}] API错误: {body[:500]}")
             continue
+
+        # Debug: log keys
+        top_keys = list(data.keys())
+        logger.info(f"[{aweme_id}] API响应顶层keys: {top_keys}")
+        if "aweme_detail" in data:
+            detail_keys = list(data["aweme_detail"].keys())[:10]
+            logger.info(f"[{aweme_id}] aweme_detail keys: {detail_keys}")
+
+        # Save debug response
+        debug_dir = os.path.join(DATA_DIR, "debug")
+        os.makedirs(debug_dir, exist_ok=True)
+        debug_path = os.path.join(debug_dir, f"api_detail_{aweme_id}.json")
+        with open(debug_path, "w") as f:
+            f.write(body[:10000])
+        logger.info(f"[{aweme_id}] API响应已保存: {debug_path}")
 
         aweme_detail = data.get("aweme_detail", {})
         video = aweme_detail.get("video", {})
