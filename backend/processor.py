@@ -209,14 +209,12 @@ async def process_video(video_id: int) -> bool:
 
             page = await ctx.new_page()
 
-            # Step 1: 访问抖音页面
-            mobile_url = f"https://m.douyin.com/share/video/{aweme_id}"
-            logger.info(f"[{aweme_id}] 访问页面: {mobile_url}")
-            resp = await page.goto(mobile_url, wait_until="domcontentloaded", timeout=30000)
-            logger.info(f"[{aweme_id}] 页面状态码: {resp.status if resp else 'N/A'}")
-            await page.wait_for_timeout(3000)
+            try:
+                await page.goto("https://m.douyin.com/", wait_until="domcontentloaded", timeout=10000)
+                logger.info(f"[{aweme_id}] 已建立 m.douyin.com 会话")
+            except Exception:
+                logger.warning(f"[{aweme_id}] 首页加载超时, 继续尝试...")
 
-            # Step 2: 获取视频地址
             video_url = await _fetch_video_url(page, aweme_id)
 
             if not video_url:
