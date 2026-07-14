@@ -174,6 +174,30 @@ def update_setting(key: str, body: dict, db: Session = Depends(get_db)):
     return {"ok": True, "key": key, "value": row.value}
 
 
+@app.post("/api/reset")
+def reset_all():
+    import shutil
+    import os as _os
+    from backend.config import SCREENSHOTS_DIR, DATA_DIR, DB_PATH
+    from backend.database import engine
+
+    engine.dispose()
+    try:
+        _os.remove(DB_PATH)
+    except FileNotFoundError:
+        pass
+    if _os.path.exists(SCREENSHOTS_DIR):
+        shutil.rmtree(SCREENSHOTS_DIR)
+    vdir = _os.path.join(DATA_DIR, "videos")
+    if _os.path.exists(vdir):
+        shutil.rmtree(vdir)
+    cf = _os.path.join(DATA_DIR, "cookies.json")
+    if _os.path.exists(cf):
+        _os.remove(cf)
+    init_db()
+    return {"ok": True, "msg": "所有数据已清空，数据库已重建"}
+
+
 @app.post("/api/scrape/trigger")
 def trigger_scrape():
     from backend.scraper import scrape_profile

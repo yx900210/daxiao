@@ -61,6 +61,7 @@ def main():
 
     sub.add_parser("scrape", help="触发一次抓取")
     sub.add_parser("init-db", help="初始化数据库")
+    sub.add_parser("reset", help="清空所有数据")
     sub.add_parser("serve", help="启动 Web 服务")
 
     args = parser.parse_args()
@@ -70,6 +71,23 @@ def main():
     elif args.command == "init-db":
         init_db()
         logger.info("数据库初始化完成")
+    elif args.command == "reset":
+        import shutil
+        from backend.config import SCREENSHOTS_DIR, DATA_DIR, DB_PATH
+        try:
+            os.remove(DB_PATH)
+            logger.info(f"已删除数据库: {DB_PATH}")
+        except FileNotFoundError:
+            pass
+        if os.path.exists(SCREENSHOTS_DIR):
+            shutil.rmtree(SCREENSHOTS_DIR)
+        if os.path.exists(os.path.join(DATA_DIR, "videos")):
+            shutil.rmtree(os.path.join(DATA_DIR, "videos"))
+        if os.path.exists(os.path.join(DATA_DIR, "cookies.json")):
+            os.remove(os.path.join(DATA_DIR, "cookies.json"))
+        logger.info("已清空截图和视频目录")
+        init_db()
+        logger.info("数据库已重新初始化, 数据已全部清零")
     elif args.command == "serve":
         import uvicorn
         from backend.api import app
