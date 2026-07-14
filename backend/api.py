@@ -155,12 +155,53 @@ def trigger_scrape():
     loop = asyncio.new_event_loop()
     try:
         total, new = loop.run_until_complete(scrape_profile())
+        if new > 0:
+            _start_process_background()
         return {"ok": True, "total": total, "new": new}
     except Exception as e:
         logger.error(f"手动抓取失败: {e}")
         return {"ok": False, "error": str(e)}
     finally:
         loop.close()
+
+
+@app.post("/api/process/pending")
+def process_pending():
+    _start_process_background()
+    return {"ok": True, "msg": "处理任务已在后台启动"}
+
+
+def _start_process_background():
+    import threading
+
+    def _run():
+        import asyncio as _asyncio
+        from backend.processor import process_video
+        from backend.database import SessionLocal
+        from backend.models import Video
+
+        db = SessionLocal()
+        pending = db.query(Video.id).filter(
+            Video.fetch_status.in_(["pending", "screenshotted"])
+        ).all()
+        db.close()
+
+        pending_ids = [row[0] for row in pending]
+        logger.info(f"[后台处理] 发现 {len(pending_ids)} 个待处理视频")
+
+        for vid in pending_ids:
+            try:
+                loop = _asyncio.new_event_loop()
+                _asyncio.set_event_loop(loop)
+                loop.run_until_complete(process_video(vid))
+                loop.close()
+            except Exception as e:
+                logger.error(f"[后台处理] 视频 {vid} 失败: {e}")
+
+        logger.info("[后台处理] 全部完成")
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
 
 
 @app.post("/api/videos/{video_id}/reprocess")

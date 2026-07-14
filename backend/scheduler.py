@@ -38,6 +38,10 @@ def _run_scrape():
         db.commit()
         db.close()
         logger.info(f"[定时] 抓取完成: 总计{total}, 新增{new}")
+
+        if new > 0:
+            from backend.api import _start_process_background
+            _start_process_background()
     except Exception as e:
         logger.error(f"[定时] 抓取失败: {e}")
         db = SessionLocal()

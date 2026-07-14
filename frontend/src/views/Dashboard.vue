@@ -19,6 +19,9 @@
       <button class="btn-primary" @click="triggerScrape" :disabled="scraping">
         {{ scraping ? '抓取中...' : '立即抓取' }}
       </button>
+      <button class="btn-primary btn-process" @click="triggerProcess" :disabled="processing">
+        {{ processing ? '处理中...' : '处理所有视频' }}
+      </button>
       <span class="last-scrape" v-if="stats.last_scrape">
         上次抓取: {{ formatTime(stats.last_scrape) }}
       </span>
@@ -74,6 +77,8 @@ export default {
       ],
       scraping: false,
       scrapeMsg: '',
+      processing: false,
+      processMsg: '',
     }
   },
   watch: {
@@ -108,6 +113,20 @@ export default {
         this.scrapeMsg = '请求失败'
       }
       this.scraping = false
+    },
+    async triggerProcess() {
+      this.processing = true
+      this.processMsg = '处理任务已启动...'
+      try {
+        const r = await fetch('/api/process/pending', { method: 'POST' })
+        const d = await r.json()
+        this.processMsg = d.msg
+        this.fetchStats()
+        this.fetchVideos()
+      } catch(e) {
+        this.processMsg = '请求失败'
+      }
+      this.processing = false
     },
     goDetail(id) { this.$router.push(`/video/${id}`) },
     formatTime(t) { return t ? new Date(t).toLocaleString('zh-CN') : '-' },
