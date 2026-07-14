@@ -19,7 +19,7 @@ def startup():
     import os as _os
     from backend.config import SCREENSHOTS_DIR, DATA_DIR
     _os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
-    _os.makedirs(os.path.join(DATA_DIR, "videos"), exist_ok=True)
+    _os.makedirs(_os.path.join(DATA_DIR, "videos"), exist_ok=True)
     init_db()
 
 
