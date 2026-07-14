@@ -16,8 +16,8 @@ SCREENSHOTS_DIR = os.path.join(DATA_DIR, "screenshots")
 
 SCREENSHOT_INTERVAL = float(os.getenv("SCREENSHOT_INTERVAL", "2"))
 BONSAI_FRAME_SECOND = float(os.getenv("BONSAI_FRAME_SECOND", "10"))
-SUBTITLE_CROP_RATIO = (0.0, 0.82, 1.0, 0.92)
-BONSAI_CROP_RATIO = (0.65, 0.05, 0.85, 0.55)
+SUBTITLE_CROP_RATIO = (0.0, 0.70, 1.0, 1.0)
+BONSAI_CROP_RATIO = (0.75, 0.0, 1.0, 1.0)
 OCR_CONFIDENCE_MIN = float(os.getenv("OCR_CONFIDENCE_MIN", "0.7"))
 DEDUP_SIMILARITY = float(os.getenv("DEDUP_SIMILARITY", "0.8"))
 SCRAPE_DELAY_MIN = float(os.getenv("SCRAPE_DELAY_MIN", "2"))
@@ -28,6 +28,8 @@ CRON_SCHEDULE = os.getenv("CRON_SCHEDULE", "0 9 * * *")
 
 PLAYWRIGHT_HEADLESS = os.getenv("PLAYWRIGHT_HEADLESS", "true").lower() == "true"
 PLAYWRIGHT_PROXY = os.getenv("PLAYWRIGHT_PROXY", "")
+
+DOUYIN_COOKIE = os.getenv("DOUYIN_COOKIE", "")
 
 SCRAPE_TIMEOUT = int(os.getenv("SCRAPE_TIMEOUT", "60000"))
 
