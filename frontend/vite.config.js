@@ -5,8 +5,8 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     proxy: {
-      '/api': 'http://127.0.0.1:8080',
-      '/screenshots': 'http://127.0.0.1:8080',
+      '/api': 'http://127.0.0.1:8088',
+      '/screenshots': 'http://127.0.0.1:8088',
     }
   },
   build: {

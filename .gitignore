@@ -4,7 +4,6 @@ __pycache__/
 *.pyc
 venv/
 .venv/
-frontend/dist/
 frontend/node_modules/
 .vite/
 *.egg-info/

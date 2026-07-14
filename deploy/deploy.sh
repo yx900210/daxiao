@@ -34,6 +34,6 @@ systemctl restart daxiao
 
 echo ""
 echo "=== 部署完成 ==="
-echo "Web 面板: http://$(hostname -I | awk '{print $1}'):8080"
+echo "Web 面板: http://$(hostname -I | awk '{print $1}'):8088"
 echo "查看状态: systemctl status daxiao"
 echo "查看日志: journalctl -u daxiao -f"

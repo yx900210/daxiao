@@ -70,7 +70,7 @@ def main():
         from backend.scheduler import start_scheduler, stop_scheduler
         start_scheduler()
         try:
-            uvicorn.run(app, host="0.0.0.0", port=8080)
+            uvicorn.run(app, host="0.0.0.0", port=8088)
         finally:
             stop_scheduler()
     else:

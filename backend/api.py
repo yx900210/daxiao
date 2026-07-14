@@ -16,6 +16,10 @@ app = FastAPI(title="李大霄视频追踪", version="0.1.0")
 
 @app.on_event("startup")
 def startup():
+    import os as _os
+    from backend.config import SCREENSHOTS_DIR, DATA_DIR
+    _os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
+    _os.makedirs(os.path.join(DATA_DIR, "videos"), exist_ok=True)
     init_db()
 
 
@@ -175,7 +179,10 @@ def reprocess_video(video_id: int):
 # ── Screenshot static files ────────────────────────────
 
 import os as _os
-from backend.config import SCREENSHOTS_DIR, BASE_DIR
+from backend.config import SCREENSHOTS_DIR, BASE_DIR, DATA_DIR
+
+_os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
+_os.makedirs(_os.path.join(DATA_DIR, "videos"), exist_ok=True)
 
 app.mount("/screenshots", StaticFiles(directory=_os.path.abspath(SCREENSHOTS_DIR)), name="screenshots")
 
