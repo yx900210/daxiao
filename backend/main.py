@@ -1,8 +1,9 @@
 import argparse
+import asyncio
 import datetime
 import logging
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -59,13 +60,14 @@ def main():
     args = parser.parse_args()
 
     if args.command == "scrape":
-        import asyncio
         asyncio.run(do_scrape())
     elif args.command == "init-db":
         init_db()
         logger.info("数据库初始化完成")
     elif args.command == "serve":
-        logger.info("Web 服务暂未实现")
+        import uvicorn
+        from backend.api import app
+        uvicorn.run(app, host="0.0.0.0", port=8080)
     else:
         parser.print_help()
 
