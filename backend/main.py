@@ -67,7 +67,12 @@ def main():
     elif args.command == "serve":
         import uvicorn
         from backend.api import app
-        uvicorn.run(app, host="0.0.0.0", port=8080)
+        from backend.scheduler import start_scheduler, stop_scheduler
+        start_scheduler()
+        try:
+            uvicorn.run(app, host="0.0.0.0", port=8080)
+        finally:
+            stop_scheduler()
     else:
         parser.print_help()
 

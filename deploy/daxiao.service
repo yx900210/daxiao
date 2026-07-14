@@ -1,0 +1,19 @@
+[Unit]
+Description=李大霄视频追踪系统
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/daxiao
+Environment="PATH=/opt/daxiao/venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/opt/daxiao/.env
+ExecStart=/opt/daxiao/venv/bin/python -m backend.main serve
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
