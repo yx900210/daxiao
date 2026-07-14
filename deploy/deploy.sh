@@ -13,24 +13,21 @@ if [ ! -f "$APP_DIR/.env" ]; then
 fi
 
 apt-get update
-apt-get install -y python3.11 python3.11-venv python3-pip \
-    libgl1-mesa-glx libglib2.0-0 libnss3 libnspr4 libatk-bridge2.0-0 \
-    libatk1.0-0 libcups2 libdrm2 libdbus-1-3 libxkbcommon0 \
-    libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 \
-    libpango-1.0-0 libcairo2 libasound2
+apt-get install -y python3 python3-venv python3-pip
 
 if [ ! -d "$VENV_DIR" ]; then
-    python3.11 -m venv "$VENV_DIR"
+    python3 -m venv "$VENV_DIR"
 fi
 
 $VENV_DIR/bin/pip install --upgrade pip
 $VENV_DIR/bin/pip install -r "$APP_DIR/backend/requirements.txt"
-$VENV_DIR/bin/python -m playwright install chromium --with-deps
+
+echo "安装 Chromium 及系统依赖（可能需要几分钟）..."
+$VENV_DIR/bin/python -m playwright install --with-deps chromium
 
 $VENV_DIR/bin/python -m backend.main init-db
 
 cp "$APP_DIR/deploy/daxiao.service" /etc/systemd/system/
-
 systemctl daemon-reload
 systemctl enable daxiao
 systemctl restart daxiao

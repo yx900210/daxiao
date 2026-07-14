@@ -5,10 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=www-data
+User=root
 WorkingDirectory=/opt/daxiao
-Environment="PATH=/opt/daxiao/venv/bin:/usr/local/bin:/usr/bin:/bin"
-EnvironmentFile=/opt/daxiao/.env
 ExecStart=/opt/daxiao/venv/bin/python -m backend.main serve
 Restart=on-failure
 RestartSec=30
