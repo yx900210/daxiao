@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from backend.database import get_db, init_db
-from backend.models import Video, Subtitle, BonsaiScreenshot, VideoResult, ScrapeLog
+from backend.models import Video, Subtitle, BonsaiScreenshot, VideoResult, ScrapeLog, Setting
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +17,21 @@ app = FastAPI(title="李大霄视频追踪", version="0.1.0")
 @app.on_event("startup")
 def startup():
     import os as _os
-    from backend.config import SCREENSHOTS_DIR, DATA_DIR
+    from backend.config import SCREENSHOTS_DIR, DATA_DIR, DOUYIN_COOKIE, PLAYWRIGHT_PROXY
     _os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
     _os.makedirs(_os.path.join(DATA_DIR, "videos"), exist_ok=True)
     init_db()
+
+    db = next(get_db())
+    defaults = {
+        "douyin_cookie": DOUYIN_COOKIE,
+        "http_proxy": PLAYWRIGHT_PROXY or "http://nas.900210.top:53128",
+    }
+    for k, v in defaults.items():
+        if not db.query(Setting).get(k):
+            db.add(Setting(key=k, value=v or ""))
+    db.commit()
+    db.close()
 
 
 # ── Dashboard ──────────────────────────────────────────
@@ -145,6 +156,22 @@ def scrape_logs(db: Session = Depends(get_db)):
             for l in logs
         ]
     }
+
+
+@app.get("/api/settings")
+def get_settings(db: Session = Depends(get_db)):
+    rows = db.query(Setting).all()
+    return {r.key: r.value for r in rows}
+
+
+@app.put("/api/settings/{key}")
+def update_setting(key: str, body: dict, db: Session = Depends(get_db)):
+    row = db.query(Setting).get(key)
+    if not row:
+        raise HTTPException(404, "设置项不存在")
+    row.value = body.get("value", "")
+    db.commit()
+    return {"ok": True, "key": key, "value": row.value}
 
 
 @app.post("/api/scrape/trigger")

@@ -107,3 +107,10 @@ class ScrapeLog(Base):
     status = Column(String(16), default="running")
     error_msg = Column(Text)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+class Setting(Base):
+    __tablename__ = "settings"
+
+    key = Column(String(64), primary_key=True)
+    value = Column(Text, default="")
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow)

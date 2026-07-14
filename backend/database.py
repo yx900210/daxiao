@@ -21,3 +21,14 @@ def get_db():
 def init_db():
     import backend.models  # noqa: F401
     Base.metadata.create_all(bind=engine)
+
+def get_setting(key: str, default: str = "") -> str:
+    from sqlalchemy import text
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT value FROM settings WHERE key = :k"), {"k": key}
+            ).scalar()
+            return result if result else default
+    except Exception:
+        return default

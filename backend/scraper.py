@@ -24,7 +24,7 @@ from backend.config import (
     PLAYWRIGHT_PROXY,
     SCRAPE_TIMEOUT,
 )
-from backend.database import SessionLocal
+from backend.database import SessionLocal, get_setting
 from backend.models import Video, ScrapeLog
 
 logger = logging.getLogger(__name__)
@@ -258,6 +258,7 @@ async def scrape_profile() -> tuple[int, int]:
                 "--disable-features=IsolateOrigins,site-per-process",
             ],
         )
+        db_proxy = get_setting("http_proxy", PLAYWRIGHT_PROXY) or ""
         context = await browser.new_context(
             user_agent=USER_AGENT,
             viewport={"width": 390, "height": 844},
@@ -266,7 +267,7 @@ async def scrape_profile() -> tuple[int, int]:
             has_touch=True,
             locale="zh-CN",
             timezone_id="Asia/Shanghai",
-            proxy={"server": PLAYWRIGHT_PROXY} if PLAYWRIGHT_PROXY else None,
+            proxy={"server": db_proxy} if db_proxy else None,
         )
 
         existing_cookies = _load_cookies()

@@ -17,7 +17,7 @@ from backend.config import (
     PLAYWRIGHT_HEADLESS,
     DOUYIN_COOKIE,
 )
-from backend.database import SessionLocal
+from backend.database import SessionLocal, get_setting
 from backend.models import Video, Frame, Subtitle, BonsaiScreenshot
 
 logger = logging.getLogger(__name__)
@@ -157,15 +157,17 @@ async def process_video(video_id: int) -> bool:
                     "--autoplay-policy=no-user-gesture-required",
                 ],
             )
+            db_proxy = get_setting("http_proxy", PLAYWRIGHT_PROXY) or ""
             ctx = await browser.new_context(
                 user_agent=USER_AGENT,
                 viewport={"width": 1280, "height": 720},
                 device_scale_factor=1,
-                proxy={"server": PLAYWRIGHT_PROXY} if PLAYWRIGHT_PROXY else None,
+                proxy={"server": db_proxy} if db_proxy else None,
             )
 
-            if DOUYIN_COOKIE:
-                cookies = _parse_cookie_string(DOUYIN_COOKIE)
+            cookie_str = get_setting("douyin_cookie", DOUYIN_COOKIE)
+            if cookie_str:
+                cookies = _parse_cookie_string(cookie_str)
                 await ctx.add_cookies(cookies)
                 logger.info(f"已注入 {len(cookies)} 个 cookie")
 
