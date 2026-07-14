@@ -171,7 +171,7 @@ async def process_video(video_id: int) -> bool:
 
             page = await ctx.new_page()
 
-            await page.goto(f"https://www.douyin.com/video/{aweme_id}",
+            await page.goto(f"https://m.douyin.com/share/video/{aweme_id}",
                             wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(3000)
 
