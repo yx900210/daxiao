@@ -24,12 +24,12 @@ from backend.models import Video, Frame, Subtitle, BonsaiScreenshot, VideoResult
 logger = logging.getLogger(__name__)
 
 USER_AGENT = (
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) "
-    "AppleWebKit/605.1.15 (KHTML, like Gecko) "
-    "Version/16.0 Mobile/15E148 Safari/604.1"
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Safari/537.36"
 )
 
-VIDEO_PAGE_TMPL = "https://m.douyin.com/share/video/{aweme_id}"
+VIDEO_PAGE_TMPL = "https://www.douyin.com/video/{aweme_id}"
 
 
 async def _setup_page(page: Page):
@@ -102,10 +102,8 @@ async def process_video(video_id: int) -> bool:
             )
             ctx = await browser.new_context(
                 user_agent=USER_AGENT,
-                viewport={"width": 390, "height": 844},
-                device_scale_factor=3,
-                is_mobile=True,
-                has_touch=True,
+                viewport={"width": 1440, "height": 900},
+                device_scale_factor=1,
                 proxy={"server": PLAYWRIGHT_PROXY} if PLAYWRIGHT_PROXY else None,
             )
             page = await ctx.new_page()
@@ -129,8 +127,9 @@ async def process_video(video_id: int) -> bool:
             frame_index = 0
             bonsai_done = False
             t = 1.0
+            max_duration = min(duration, float(os.environ.get("PROCESS_MAX_DURATION", str(duration))))
 
-            while t < duration:
+            while t < max_duration:
                 await page.evaluate(f"document.querySelector('video').currentTime = {t}")
                 await page.wait_for_timeout(1500)
 
