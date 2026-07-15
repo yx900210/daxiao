@@ -49,62 +49,57 @@ def _parse_cookie_string(raw: str) -> list[dict]:
 
 
 async def _fetch_video_url(page: Page, aweme_id: str) -> Optional[str]:
-    for api_url in [
-        f"https://m.douyin.com/aweme/v1/web/aweme/detail/?aweme_id={aweme_id}&aid=6383",
-        f"https://m.douyin.com/web/api/v2/aweme/detail/?aweme_id={aweme_id}&aid=6383",
-    ]:
-        logger.info(f"[{aweme_id}] 尝试: ...{api_url[-60:]}")
-        body = await page.evaluate("""
-            async (url) => {
-                try {
-                    const controller = new AbortController();
-                    const timeout = setTimeout(() => controller.abort(), 15000);
-                    const resp = await fetch(url, {
-                        credentials: 'include',
-                        signal: controller.signal,
-                    });
-                    clearTimeout(timeout);
-                    if (!resp.ok) return JSON.stringify({_err: resp.status});
-                    return await resp.text();
-                } catch(e) {
-                    return JSON.stringify({_err: e.message || 'fetch_failed'});
-                }
-            }
-        """, api_url)
+    try:
+        from scrapling.fetchers import Fetcher
+        from scrapling.parser import Selector
 
-        try:
-            data = json.loads(body)
-        except json.JSONDecodeError:
-            logger.error(f"[{aweme_id}] 返回非JSON ({len(body)} bytes): {body[:300]}")
-            continue
+        cookie_str = get_setting("douyin_cookie", DOUYIN_COOKIE)
+        proxy_url = get_setting("http_proxy", PLAYWRIGHT_PROXY) or None
 
-        if "_err" in data:
-            logger.error(f"[{aweme_id}] 请求失败: {data['_err']}")
-            continue
+        logger.info(f"[{aweme_id}] Scrapling Fetcher 尝试桌面API (代理={proxy_url})...")
 
-        status_code = data.get("status_code", data.get("code", -1))
-        logger.info(f"[{aweme_id}] 响应 status_code={status_code}, keys={list(data.keys())}")
+        sc_page: Selector = Fetcher.get(
+            "https://www.douyin.com/aweme/v1/web/aweme/detail/",
+            params={"aweme_id": aweme_id, "aid": "6383"},
+            headers={
+                "Referer": "https://www.douyin.com/",
+                "User-Agent": USER_AGENT,
+            },
+            cookies=cookie_str,
+            stealthy_headers=True,
+            proxy=proxy_url,
+            impersonate="chrome",
+            timeout=15,
+        )
+
+        body = sc_page.text
+        logger.info(f"[{aweme_id}] Scrapling 返回 {len(body)} bytes")
+
+        data = json.loads(body)
+        if "status_code" not in data and "aweme_detail" not in data:
+            logger.error(f"[{aweme_id}] 非预期的响应, keys: {list(data.keys())}")
+            return None
 
         aweme_detail = data.get("aweme_detail", {})
-        if not aweme_detail:
-            logger.error(f"[{aweme_id}] 无 aweme_detail, 完整keys: {list(data.keys())}")
-            continue
-
         video = aweme_detail.get("video", {})
+
         for key in ("play_addr_h264", "play_addr", "play_addr_265"):
             pa = video.get(key, {})
             url_list = pa.get("url_list", []) if isinstance(pa, dict) else []
             for u in url_list:
                 if isinstance(u, str) and u.startswith("http"):
-                    logger.info(f"[{aweme_id}] ✅ CDN地址获取成功: {key}")
-                    logger.info(f"[{aweme_id}]     → {u[:120]}")
+                    logger.info(f"[{aweme_id}] ✅ CDN地址: {key} → {u[:120]}")
                     return u
 
-        logger.error(f"[{aweme_id}] video中无播放地址, keys={list(video.keys())[:10]}")
-        logger.error(f"[{aweme_id}] aweme_detail前500字: {json.dumps(aweme_detail, ensure_ascii=False)[:500]}")
+        logger.error(f"[{aweme_id}] video keys: {list(video.keys())[:10]}")
+        return None
 
-    logger.error(f"[{aweme_id}] 所有 m.douyin.com API端点均失败")
-    return None
+    except ImportError:
+        logger.error(f"[{aweme_id}] Scrapling 未安装, 请执行: pip install 'scrapling[fetchers]'")
+        return None
+    except Exception as e:
+        logger.error(f"[{aweme_id}] Scrapling 请求失败: {e}")
+        return None
 
 
 async def _crop_save(page: Page, video_dir: str, frame_index: int, timestamp: float, label: str):
@@ -181,7 +176,18 @@ async def process_video(video_id: int) -> bool:
         except Exception as e:
             logger.warning(f"[{aweme_id}] 封面下载异常: {e}")
 
-    # ── 浏览器截图 ──
+    # ── 步骤1: 获取视频地址 (Scrapling HTTP, 不需要浏览器) ──
+    video_url = await _fetch_video_url(None, aweme_id)  # page 不再使用
+
+    if not video_url:
+        logger.error(f"[{aweme_id}] 失败: 无法获取视频地址")
+        video.fetch_status = "failed"
+        video.error_msg = "无法解析视频地址"
+        db.commit()
+        db.close()
+        return False
+
+    # ── 步骤2: 浏览器截图 ──
     try:
         logger.info(f"[{aweme_id}] 启动浏览器...")
         async with async_playwright() as pw:
@@ -215,24 +221,7 @@ async def process_video(video_id: int) -> bool:
 
             page = await ctx.new_page()
 
-            try:
-                await page.goto("https://m.douyin.com/", wait_until="domcontentloaded", timeout=10000)
-                logger.info(f"[{aweme_id}] 已建立 m.douyin.com 会话")
-            except Exception:
-                logger.warning(f"[{aweme_id}] 首页加载超时, 继续尝试...")
-
-            video_url = await _fetch_video_url(page, aweme_id)
-
-            if not video_url:
-                logger.error(f"[{aweme_id}] 失败: 无法获取视频地址")
-                video.fetch_status = "failed"
-                video.error_msg = "无法解析视频地址"
-                db.commit()
-                await browser.close()
-                db.close()
-                return False
-
-            # Step 3: 加载自定义播放器
+            # Step 2a: 加载视频播放器
             logger.info(f"[{aweme_id}] 加载视频播放器...")
             player_html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
