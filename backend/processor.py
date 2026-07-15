@@ -49,57 +49,61 @@ def _parse_cookie_string(raw: str) -> list[dict]:
 
 
 async def _fetch_video_url(page: Page, aweme_id: str) -> Optional[str]:
-    api_url = "https://www.douyin.com/aweme/v1/web/aweme/detail/"
-    logger.info(f"[{aweme_id}] 调桌面详情API: www.douyin.com/aweme/v1/web/aweme/detail/")
-
-    body = await page.evaluate("""
-        async (args) => {
-            const url = args.api + '?' + new URLSearchParams({ aweme_id: args.id, aid: '6383' }).toString();
-            try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 15000);
-                const resp = await fetch(url, {
-                    credentials: 'include',
-                    signal: controller.signal,
-                });
-                clearTimeout(timeout);
-                if (!resp.ok) return JSON.stringify({error: resp.status});
-                const text = await resp.text();
-                return text;
-            } catch(e) {
-                return JSON.stringify({error: e.message || 'fetch_failed'});
+    for api_url in [
+        f"https://m.douyin.com/aweme/v1/web/aweme/detail/?aweme_id={aweme_id}&aid=6383",
+        f"https://m.douyin.com/web/api/v2/aweme/detail/?aweme_id={aweme_id}&aid=6383",
+    ]:
+        logger.info(f"[{aweme_id}] 尝试: ...{api_url[-60:]}")
+        body = await page.evaluate("""
+            async (url) => {
+                try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 15000);
+                    const resp = await fetch(url, {
+                        credentials: 'include',
+                        signal: controller.signal,
+                    });
+                    clearTimeout(timeout);
+                    if (!resp.ok) return JSON.stringify({_err: resp.status});
+                    return await resp.text();
+                } catch(e) {
+                    return JSON.stringify({_err: e.message || 'fetch_failed'});
+                }
             }
-        }
-    """, {"id": aweme_id, "api": api_url})
+        """, api_url)
 
-    try:
-        data = json.loads(body)
-    except json.JSONDecodeError:
-        logger.error(f"[{aweme_id}] 桌面API返回非JSON (前300字): {body[:300]}")
-        logger.error(f"[{aweme_id}] 可能代理不通或cookie失效, 检查: http_proxy 是否已配置")
-        return None
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            logger.error(f"[{aweme_id}] 返回非JSON ({len(body)} bytes): {body[:300]}")
+            continue
 
-    if "error" in data:
-        logger.error(f"[{aweme_id}] 桌面API返回错误: {data['error']}")
-        return None
+        if "_err" in data:
+            logger.error(f"[{aweme_id}] 请求失败: {data['_err']}")
+            continue
 
-    if "status_code" not in data and "aweme_detail" not in data:
-        logger.error(f"[{aweme_id}] 未预期的API响应结构, keys: {list(data.keys())}")
-        return None
+        status_code = data.get("status_code", data.get("code", -1))
+        logger.info(f"[{aweme_id}] 响应 status_code={status_code}, keys={list(data.keys())}")
 
-    aweme_detail = data.get("aweme_detail", {})
-    video = aweme_detail.get("video", {})
+        aweme_detail = data.get("aweme_detail", {})
+        if not aweme_detail:
+            logger.error(f"[{aweme_id}] 无 aweme_detail, 完整keys: {list(data.keys())}")
+            continue
 
-    for key in ("play_addr_h264", "play_addr", "play_addr_265"):
-        pa = video.get(key, {})
-        url_list = pa.get("url_list", []) if isinstance(pa, dict) else []
-        for u in url_list:
-            if isinstance(u, str) and u.startswith("http"):
-                logger.info(f"[{aweme_id}] ✅ CDN地址获取成功: {key}")
-                logger.info(f"[{aweme_id}]     → {u[:120]}")
-                return u
+        video = aweme_detail.get("video", {})
+        for key in ("play_addr_h264", "play_addr", "play_addr_265"):
+            pa = video.get(key, {})
+            url_list = pa.get("url_list", []) if isinstance(pa, dict) else []
+            for u in url_list:
+                if isinstance(u, str) and u.startswith("http"):
+                    logger.info(f"[{aweme_id}] ✅ CDN地址获取成功: {key}")
+                    logger.info(f"[{aweme_id}]     → {u[:120]}")
+                    return u
 
-    logger.error(f"[{aweme_id}] 视频对象中无播放地址, video keys: {list(video.keys())[:10]}")
+        logger.error(f"[{aweme_id}] video中无播放地址, keys={list(video.keys())[:10]}")
+        logger.error(f"[{aweme_id}] aweme_detail前500字: {json.dumps(aweme_detail, ensure_ascii=False)[:500]}")
+
+    logger.error(f"[{aweme_id}] 所有 m.douyin.com API端点均失败")
     return None
 
 
