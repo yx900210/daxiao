@@ -56,7 +56,15 @@ async def _fetch_video_url(page: Page, aweme_id: str) -> Optional[str]:
         cookie_str = get_setting("douyin_cookie", DOUYIN_COOKIE)
         proxy_url = get_setting("http_proxy", PLAYWRIGHT_PROXY) or None
 
-        logger.info(f"[{aweme_id}] Scrapling Fetcher 尝试桌面API (代理={proxy_url})...")
+        cookies_dict = {}
+        if cookie_str:
+            for item in cookie_str.split(";"):
+                item = item.strip()
+                if "=" in item:
+                    k, _, v = item.partition("=")
+                    cookies_dict[k.strip()] = v.strip()
+
+        logger.info(f"[{aweme_id}] Scrapling Fetcher 调桌面API (代理={proxy_url}, cookies={len(cookies_dict)}个)...")
 
         sc_page: Selector = Fetcher.get(
             "https://www.douyin.com/aweme/v1/web/aweme/detail/",
@@ -65,7 +73,7 @@ async def _fetch_video_url(page: Page, aweme_id: str) -> Optional[str]:
                 "Referer": "https://www.douyin.com/",
                 "User-Agent": USER_AGENT,
             },
-            cookies=cookie_str,
+            cookies=cookies_dict,
             stealthy_headers=True,
             proxy=proxy_url,
             impersonate="chrome",
