@@ -49,72 +49,57 @@ def _parse_cookie_string(raw: str) -> list[dict]:
 
 
 async def _fetch_video_url(page: Page, aweme_id: str) -> Optional[str]:
-    logger.info(f"[{aweme_id}] 正在调用抖音详情API...")
+    api_url = "https://www.douyin.com/aweme/v1/web/aweme/detail/"
+    logger.info(f"[{aweme_id}] 调桌面详情API: www.douyin.com/aweme/v1/web/aweme/detail/")
 
-    for api_base in [
-        "https://m.douyin.com/web/api/v2/aweme/detail/",
-        "https://www.douyin.com/aweme/v1/web/aweme/detail/",
-    ]:
-        logger.info(f"[{aweme_id}] 尝试: {api_base}")
-        body = await page.evaluate("""
-            async (args) => {
-                const url = args.base + '?' + new URLSearchParams({ aweme_id: args.id, aid: '6383' }).toString();
-                try {
-                    const controller = new AbortController();
-                    const timeout = setTimeout(() => controller.abort(), 15000);
-                    const resp = await fetch(url, {
-                        credentials: 'include',
-                        signal: controller.signal,
-                    });
-                    clearTimeout(timeout);
-                    if (!resp.ok) return JSON.stringify({error: resp.status, url: url.substring(0,100)});
-                    const text = await resp.text();
-                    return text;
-                } catch(e) {
-                    return JSON.stringify({error: e.message || 'fetch_failed', url: url.substring(0,100)});
-                }
+    body = await page.evaluate("""
+        async (args) => {
+            const url = args.api + '?' + new URLSearchParams({ aweme_id: args.id, aid: '6383' }).toString();
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 15000);
+                const resp = await fetch(url, {
+                    credentials: 'include',
+                    signal: controller.signal,
+                });
+                clearTimeout(timeout);
+                if (!resp.ok) return JSON.stringify({error: resp.status});
+                const text = await resp.text();
+                return text;
+            } catch(e) {
+                return JSON.stringify({error: e.message || 'fetch_failed'});
             }
-        """, {"id": aweme_id, "base": api_base})
+        }
+    """, {"id": aweme_id, "api": api_url})
 
-        try:
-            data = json.loads(body)
-        except json.JSONDecodeError:
-            logger.error(f"[{aweme_id}] API返回非JSON: {body[:500]}")
-            continue
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        logger.error(f"[{aweme_id}] 桌面API返回非JSON (前300字): {body[:300]}")
+        logger.error(f"[{aweme_id}] 可能代理不通或cookie失效, 检查: http_proxy 是否已配置")
+        return None
 
-        if "error" in data:
-            logger.error(f"[{aweme_id}] API错误: {body[:500]}")
-            continue
+    if "error" in data:
+        logger.error(f"[{aweme_id}] 桌面API返回错误: {data['error']}")
+        return None
 
-        # Debug: log keys
-        top_keys = list(data.keys())
-        logger.info(f"[{aweme_id}] API响应顶层keys: {top_keys}")
-        if "aweme_detail" in data:
-            detail_keys = list(data["aweme_detail"].keys())[:10]
-            logger.info(f"[{aweme_id}] aweme_detail keys: {detail_keys}")
+    if "status_code" not in data and "aweme_detail" not in data:
+        logger.error(f"[{aweme_id}] 未预期的API响应结构, keys: {list(data.keys())}")
+        return None
 
-        # Save debug response
-        debug_dir = os.path.join(DATA_DIR, "debug")
-        os.makedirs(debug_dir, exist_ok=True)
-        debug_path = os.path.join(debug_dir, f"api_detail_{aweme_id}.json")
-        with open(debug_path, "w") as f:
-            f.write(body[:10000])
-        logger.info(f"[{aweme_id}] API响应已保存: {debug_path}")
+    aweme_detail = data.get("aweme_detail", {})
+    video = aweme_detail.get("video", {})
 
-        aweme_detail = data.get("aweme_detail", {})
-        video = aweme_detail.get("video", {})
+    for key in ("play_addr_h264", "play_addr", "play_addr_265"):
+        pa = video.get(key, {})
+        url_list = pa.get("url_list", []) if isinstance(pa, dict) else []
+        for u in url_list:
+            if isinstance(u, str) and u.startswith("http"):
+                logger.info(f"[{aweme_id}] ✅ CDN地址获取成功: {key}")
+                logger.info(f"[{aweme_id}]     → {u[:120]}")
+                return u
 
-        for key in ("play_addr_h264", "play_addr", "play_addr_265"):
-            pa = video.get(key, {})
-            url_list = pa.get("url_list", []) if isinstance(pa, dict) else []
-            for u in url_list:
-                if isinstance(u, str) and u.startswith("http"):
-                    logger.info(f"[{aweme_id}] 视频地址: {key} → {u[:80]}...")
-                    return u
-
-        logger.warning(f"[{aweme_id}] API返回但无视频URL, video keys: {list(video.keys())[:10]}")
-
-    logger.error(f"[{aweme_id}] 所有API端点均失败")
+    logger.error(f"[{aweme_id}] 视频对象中无播放地址, video keys: {list(video.keys())[:10]}")
     return None
 
 
@@ -204,8 +189,10 @@ async def process_video(video_id: int) -> bool:
                 ],
             )
             db_proxy = get_setting("http_proxy", PLAYWRIGHT_PROXY) or ""
-            proxy_info = f"代理={db_proxy}" if db_proxy else "无代理"
-            logger.info(f"[{aweme_id}] 浏览器已启动, {proxy_info}")
+            if db_proxy:
+                logger.info(f"[{aweme_id}] 🔗 浏览器已启动, 代理={db_proxy} (API请求将走此代理)")
+            else:
+                logger.warning(f"[{aweme_id}] ⚠️ 浏览器已启动, 未配置代理 (www.douyin.com 可能无法访问)")
 
             ctx = await browser.new_context(
                 user_agent=USER_AGENT,
