@@ -15,6 +15,7 @@ from backend.config import (
     SCRAPE_DELAY_MIN,
     SCRAPE_DELAY_MAX,
     PAGE_SCROLL_COUNT,
+    CHROME_CDP_URL,
     SCRAPE_TIMEOUT,
 )
 from backend.database import SessionLocal
@@ -189,32 +190,66 @@ async def scrape_profile() -> tuple[int, int]:
     collected: dict[str, dict] = {}
 
     async with async_playwright() as pw:
-        browser = await pw.chromium.launch(headless=True)
-        context = await browser.new_context()
+        browser = await pw.chromium.connect_over_cdp(CHROME_CDP_URL)
+        contexts = browser.contexts
+        context = contexts[0] if contexts else await browser.new_context()
         page = await context.new_page()
 
-        # 直接访问移动端 API
-        sec_uid = DOUYIN_PROFILE_URL.split("/user/")[-1].split("?")[0]
-        web_id = str(int(datetime.utcnow().timestamp() * 1000))[-19:]
-        api_url = f"https://m.douyin.com/web/api/v2/aweme/post/?sec_user_id={sec_uid}&count=30&max_cursor=0&aid=6383&device_platform=web&web_id={web_id}"
+        async def _on_response(resp: Response):
+            url = resp.url
+            if "/aweme/post/" in url and resp.status == 200:
+                try:
+                    body = await resp.text()
+                except Exception:
+                    return
+                items = _parse_api_response(body)
+                for item in items:
+                    vid = item.get("douyin_video_id")
+                    if vid and vid not in collected:
+                        collected[vid] = item
+                logger.info(f"拦截API → {len(items)} 条, 累计 {len(collected)}")
+
+        page.on("response", _on_response)
 
         try:
-            logger.info(f"访问移动API: {api_url[:100]}...")
-            resp = await page.goto(api_url, wait_until="domcontentloaded", timeout=30000)
-            body = await page.evaluate("document.body ? document.body.innerText : ''")
-            if not body:
-                body = await page.content()
-            items = _parse_api_response(body)
-            for item in items:
-                vid = item.get("douyin_video_id")
-                if vid:
-                    collected[vid] = item
-            logger.info(f"移动API返回 {len(items)} 条")
+            html = await _load_profile_page(page, DOUYIN_PROFILE_URL)
+            ssr_videos = _parse_ssr_html(html)
+            if ssr_videos:
+                for v in ssr_videos:
+                    vid = v.get("douyin_video_id")
+                    if vid and vid not in collected:
+                        collected[vid] = v
+                logger.info(f"SSR提取 {len(ssr_videos)} 个")
+            await _scroll_page(page)
+
+            need_urls = [vid for vid, item in collected.items() if not item.get("video_url")]
+            if need_urls:
+                logger.info(f"补全 {len(need_urls)} 个视频地址...")
+                for vid in need_urls:
+                    try:
+                        body = await page.evaluate("""
+                            async (id) => {
+                                const url = 'https://www.douyin.com/aweme/v1/web/aweme/detail/?' +
+                                    new URLSearchParams({ aweme_id: id, aid: '6383' }).toString();
+                                const ctrl = new AbortController();
+                                setTimeout(() => ctrl.abort(), 10000);
+                                const resp = await fetch(url, { credentials: 'include', signal: ctrl.signal });
+                                return resp.ok ? await resp.text() : '';
+                            }
+                        """, vid)
+                        if body:
+                            data = json.loads(body)
+                            url = _extract_play_url(data.get("aweme_detail", {}).get("video", {}))
+                            if url:
+                                collected[vid]["video_url"] = url
+                                logger.info(f"[{vid}] ✅ {url[:100]}...")
+                    except Exception as e:
+                        logger.warning(f"[{vid}] 获取地址失败: {e}")
         except Exception as e:
-            logger.error(f"移动API访问失败: {e}")
+            logger.error(f"抓取失败: {e}")
             raise
         finally:
-            await browser.close()
+            await page.close()
 
     video_list = list(collected.values())
     total = len(video_list)

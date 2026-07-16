@@ -5,7 +5,7 @@ load_dotenv()
 
 DOUYIN_PROFILE_URL = os.getenv(
     "DOUYIN_PROFILE_URL",
-    "https://m.douyin.com/user/MS4wLjABAAAAz-Nssy-G6nNshJODTK3VpEpjWsH1pMHODDPexGS5K-D6EAo5iASK_qCGRb7M5Rbe?from_tab_name=main",
+    "https://www.douyin.com/user/MS4wLjABAAAAz-Nssy-G6nNshJODTK3VpEpjWsH1pMHODDPexGS5K-D6EAo5iASK_qCGRb7M5Rbe?from_tab_name=main",
 )
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
