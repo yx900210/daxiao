@@ -15,7 +15,6 @@ from backend.config import (
     SCRAPE_DELAY_MIN,
     SCRAPE_DELAY_MAX,
     PAGE_SCROLL_COUNT,
-    CHROME_CDP_URL,
     SCRAPE_TIMEOUT,
 )
 from backend.database import SessionLocal
@@ -179,9 +178,8 @@ async def scrape_profile() -> tuple[int, int]:
     collected: dict[str, dict] = {}
 
     async with async_playwright() as pw:
-        browser = await pw.chromium.connect_over_cdp(CHROME_CDP_URL)
-        contexts = browser.contexts
-        context = contexts[0] if contexts else await browser.new_context()
+        browser = await pw.chromium.launch(headless=True)
+        context = await browser.new_context()
         page = await context.new_page()
 
         captured_urls: set[str] = set()
@@ -217,7 +215,7 @@ async def scrape_profile() -> tuple[int, int]:
             logger.error(f"抓取失败: {e}")
             raise
         finally:
-            await page.close()
+            await browser.close()
 
     video_list = list(collected.values())
     total = len(video_list)
