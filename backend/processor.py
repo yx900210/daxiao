@@ -166,8 +166,17 @@ def process_video(video_id: int) -> bool:
     title = (video.title or "")[:30]
     logger.info(f"[{aweme_id}] ======== 开始处理: {title} (id={video_id}) ========")
 
-    if video.fetch_status in ("done", "screenshotted"):
+    if video.fetch_status == "done":
         logger.info(f"[{aweme_id}] 已处理过, 跳过")
+        db.close()
+        return True
+
+    if video.fetch_status == "screenshotted" and video.local_video_path:
+        logger.info(f"[{aweme_id}] 已截图, 仅重跑OCR")
+        from backend.ocr import process_subtitles
+        process_subtitles(video.id)
+        video.fetch_status = "done"
+        db.commit()
         db.close()
         return True
 
