@@ -230,8 +230,8 @@ def process_video(video_id: int) -> bool:
             db.commit()
             elapsed2 = (datetime.utcnow() - t_start).total_seconds()
             logger.info(f"[{aweme_id}] ======== 全部完成(含OCR): 总耗时{elapsed2:.0f}s ========")
-        except ImportError:
-            logger.warning(f"[{aweme_id}] PaddleOCR 未安装, 跳过OCR。安装: pip install paddlepaddle paddleocr")
+        except ImportError as e:
+            logger.warning(f"[{aweme_id}] PaddleOCR 未安装, 跳过OCR。详情: {e}")
         except Exception as e:
             logger.error(f"[{aweme_id}] OCR 失败: {e}")
 
