@@ -48,10 +48,18 @@ def organize_subtitle(full_subtitle: str) -> str | None:
         logger.info(f"LLM 响应状态码: {resp.status_code}, 响应keys: {list(data.keys())}, 总chars: {len(resp.text)}")
         
         if "choices" not in data:
-            logger.error(f"LLM 响应格式异常, 完整响应: {json.dumps(data, ensure_ascii=False)[:1000]}")
+            logger.error(f"LLM 响应格式异常, 完整响应: {json.dumps(data, ensure_ascii=False)[:500]}")
             return None
             
-        content = data["choices"][0]["message"]["content"]
+        content = data["choices"][0]["message"].get("content") or ""
+        if not content:
+            content = data["choices"][0]["message"].get("reasoning_content") or ""
+            logger.warning(f"content为空, 使用reasoning_content: {len(content)}字符")
+
+        if not content:
+            logger.error(f"LLM返回空内容, 完整message: {json.dumps(data['choices'][0]['message'], ensure_ascii=False)[:1000]}")
+            return None
+
         logger.info(f"LLM 整理完成: {len(full_subtitle)} → {len(content)} 字符")
         return content.strip()
     except Exception as e:
