@@ -17,21 +17,10 @@ app = FastAPI(title="李大霄视频追踪", version="0.1.0")
 @app.on_event("startup")
 def startup():
     import os as _os
-    from backend.config import SCREENSHOTS_DIR, DATA_DIR, DOUYIN_COOKIE, PLAYWRIGHT_PROXY
+    from backend.config import SCREENSHOTS_DIR, DATA_DIR
     _os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
     _os.makedirs(_os.path.join(DATA_DIR, "videos"), exist_ok=True)
     init_db()
-
-    db = next(get_db())
-    defaults = {
-        "douyin_cookie": DOUYIN_COOKIE,
-        "http_proxy": PLAYWRIGHT_PROXY or "http://nas.900210.top:53128",
-    }
-    for k, v in defaults.items():
-        if not db.query(Setting).get(k):
-            db.add(Setting(key=k, value=v or ""))
-    db.commit()
-    db.close()
 
 
 # ── Dashboard ──────────────────────────────────────────
@@ -178,7 +167,7 @@ def update_setting(key: str, body: dict, db: Session = Depends(get_db)):
 def reset_all():
     import shutil
     import os as _os
-    from backend.config import SCREENSHOTS_DIR, DATA_DIR, DB_PATH, DOUYIN_COOKIE, PLAYWRIGHT_PROXY
+    from backend.config import SCREENSHOTS_DIR, DATA_DIR, DB_PATH
     from backend.database import engine
 
     engine.dispose()
@@ -191,21 +180,7 @@ def reset_all():
     vdir = _os.path.join(DATA_DIR, "videos")
     if _os.path.exists(vdir):
         shutil.rmtree(vdir)
-    cf = _os.path.join(DATA_DIR, "cookies.json")
-    if _os.path.exists(cf):
-        _os.remove(cf)
     init_db()
-
-    db = next(get_db())
-    defaults = {
-        "douyin_cookie": DOUYIN_COOKIE,
-        "http_proxy": PLAYWRIGHT_PROXY or "http://nas.900210.top:53128",
-    }
-    for k, v in defaults.items():
-        if not db.query(Setting).get(k):
-            db.add(Setting(key=k, value=v or ""))
-    db.commit()
-    db.close()
 
     return {"ok": True, "msg": "所有数据已清空，数据库已重建"}
 

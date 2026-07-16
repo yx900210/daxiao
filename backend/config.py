@@ -26,11 +26,7 @@ MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
 PAGE_SCROLL_COUNT = int(os.getenv("PAGE_SCROLL_COUNT", "5"))
 CRON_SCHEDULE = os.getenv("CRON_SCHEDULE", "0 9 * * *")
 
-PLAYWRIGHT_HEADLESS = os.getenv("PLAYWRIGHT_HEADLESS", "true").lower() == "true"
-PLAYWRIGHT_PROXY = os.getenv("PLAYWRIGHT_PROXY", "")
-
-DOUYIN_COOKIE = os.getenv("DOUYIN_COOKIE", "")
-
+CHROME_CDP_URL = os.getenv("CHROME_CDP_URL", "http://127.0.0.1:9222")
 SCRAPE_TIMEOUT = int(os.getenv("SCRAPE_TIMEOUT", "60000"))
 
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")

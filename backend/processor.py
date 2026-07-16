@@ -2,11 +2,14 @@ import asyncio
 import json
 import logging
 import os
-import traceback
 from datetime import datetime
 from typing import Optional
 
-from playwright.async_api import async_playwright, Page
+import cv2
+import httpx
+from PIL import Image
+import io
+from playwright.async_api import async_playwright
 
 from backend.config import (
     SCREENSHOT_INTERVAL,
@@ -14,12 +17,11 @@ from backend.config import (
     SUBTITLE_CROP_RATIO,
     BONSAI_CROP_RATIO,
     SCREENSHOTS_DIR,
-    PLAYWRIGHT_PROXY,
-    PLAYWRIGHT_HEADLESS,
-    DOUYIN_COOKIE,
+    VIDEOS_DIR,
     DATA_DIR,
+    CHROME_CDP_URL,
 )
-from backend.database import SessionLocal, get_setting
+from backend.database import SessionLocal
 from backend.models import Video, Frame, Subtitle, BonsaiScreenshot
 
 logger = logging.getLogger(__name__)
@@ -27,118 +29,194 @@ logger = logging.getLogger(__name__)
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/120.0.0.0 Safari/537.36"
+    "Chrome/150.0.0.0 Safari/537.36"
 )
 
 
-def _parse_cookie_string(raw: str) -> list[dict]:
-    cookies = []
-    for item in raw.split(";"):
-        item = item.strip()
-        if "=" not in item:
-            continue
-        key, _, value = item.partition("=")
-        cookies.append({
-            "name": key.strip(),
-            "value": value.strip(),
-            "domain": ".douyin.com",
-            "path": "/",
-            "sameSite": "None",
-        })
-    return cookies
-
-
-async def _fetch_video_url(page: Page, aweme_id: str) -> Optional[str]:
+async def _extract_video_url(aweme_id: str) -> Optional[str]:
     try:
-        from scrapling.fetchers import Fetcher
-        from scrapling.parser import Selector
+        async with async_playwright() as pw:
+            browser = await pw.chromium.connect_over_cdp(CHROME_CDP_URL)
+            page = await browser.new_page()
 
-        cookie_str = get_setting("douyin_cookie", DOUYIN_COOKIE)
-        proxy_url = get_setting("http_proxy", PLAYWRIGHT_PROXY) or None
+            # Listen for network requests to capture .mp4/.m3u8 URLs
+            video_urls: list[str] = []
 
-        cookies_dict = {}
-        if cookie_str:
-            for item in cookie_str.split(";"):
-                item = item.strip()
-                if "=" in item:
-                    k, _, v = item.partition("=")
-                    cookies_dict[k.strip()] = v.strip()
+            async def _on_response(resp):
+                url = resp.url
+                ct = resp.headers.get("content-type", "")
+                if ("video" in ct or ".mp4" in url or "douyinvod" in url or "playaddr" in url.lower()) and url not in video_urls:
+                    video_urls.append(url)
+                    logger.info(f"[{aweme_id}] 捕获视频请求: {url[:120]}")
 
-        logger.info(f"[{aweme_id}] Scrapling Fetcher 调桌面API (代理={proxy_url}, cookies={len(cookies_dict)}个)...")
+            page.on("response", _on_response)
 
-        sc_page: Selector = Fetcher.get(
-            "https://www.douyin.com/aweme/v1/web/aweme/detail/",
-            params={"aweme_id": aweme_id, "aid": "6383"},
-            headers={
-                "Referer": "https://www.douyin.com/",
-                "User-Agent": USER_AGENT,
-            },
-            cookies=cookies_dict,
-            stealthy_headers=True,
-            proxy=proxy_url,
-            impersonate="chrome",
-            timeout=15,
-        )
+            # Also try request interception for m3u8
+            async def _on_request(req):
+                url = req.url
+                if ".m3u8" in url and url not in video_urls:
+                    video_urls.append(url)
+                    logger.info(f"[{aweme_id}] 捕获m3u8请求: {url[:120]}")
 
-        body = sc_page.text
-        logger.info(f"[{aweme_id}] Scrapling 返回 {len(body)} bytes")
+            page.on("request", _on_request)
 
-        data = json.loads(body)
-        if "status_code" not in data and "aweme_detail" not in data:
-            logger.error(f"[{aweme_id}] 非预期的响应, keys: {list(data.keys())}")
+            await page.goto(f"https://www.douyin.com/video/{aweme_id}",
+                            wait_until="domcontentloaded", timeout=15000)
+            await page.wait_for_timeout(3000)
+
+            # Try to get video src from DOM
+            src = await page.evaluate("""() => {
+                const v = document.querySelector('video');
+                if (v && v.src && !v.src.startsWith('blob:')) return v.src;
+                const sources = document.querySelectorAll('source');
+                for (const s of sources) { if (s.src) return s.src; }
+                return null;
+            }""")
+            if src:
+                video_urls.append(src)
+                logger.info(f"[{aweme_id}] DOM video src: {src[:120]}")
+
+            await page.close()
+
+            # Prefer mp4 URLs
+            for u in video_urls:
+                if ".mp4" in u or "douyinvod" in u:
+                    logger.info(f"[{aweme_id}] 选择下载地址: {u[:120]}")
+                    return u
+            if video_urls:
+                logger.info(f"[{aweme_id}] 选择下载地址: {video_urls[0][:120]}")
+                return video_urls[0]
+
+            return None
+    except Exception as e:
+        logger.error(f"[{aweme_id}] 提取视频地址失败: {e}")
+        return None
+
+
+def _download_video(aweme_id: str, video_url: str) -> Optional[str]:
+    os.makedirs(VIDEOS_DIR, exist_ok=True)
+    output_path = os.path.join(VIDEOS_DIR, f"{aweme_id}.mp4")
+
+    if os.path.exists(output_path) and os.path.getsize(output_path) > 1024:
+        logger.info(f"[{aweme_id}] 视频已存在: {output_path}")
+        return output_path
+
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Referer": "https://www.douyin.com/",
+    }
+
+    try:
+        logger.info(f"[{aweme_id}] 开始下载视频...")
+        with httpx.stream("GET", video_url, headers=headers, timeout=300, follow_redirects=True) as r:
+            r.raise_for_status()
+            total = int(r.headers.get("content-length", 0))
+            downloaded = 0
+            with open(output_path, "wb") as f:
+                for chunk in r.iter_bytes(chunk_size=65536):
+                    f.write(chunk)
+                    downloaded += len(chunk)
+            if total > 0:
+                logger.info(f"[{aweme_id}] 下载完成: {downloaded}/{total} bytes")
+            else:
+                logger.info(f"[{aweme_id}] 下载完成: {downloaded} bytes")
+
+        if os.path.getsize(output_path) < 1024:
+            os.remove(output_path)
+            logger.error(f"[{aweme_id}] 下载文件过小，可能失败")
             return None
 
-        aweme_detail = data.get("aweme_detail", {})
-        video = aweme_detail.get("video", {})
-
-        for key in ("play_addr_h264", "play_addr", "play_addr_265"):
-            pa = video.get(key, {})
-            url_list = pa.get("url_list", []) if isinstance(pa, dict) else []
-            for u in url_list:
-                if isinstance(u, str) and u.startswith("http"):
-                    logger.info(f"[{aweme_id}] ✅ CDN地址: {key} → {u[:120]}")
-                    return u
-
-        logger.error(f"[{aweme_id}] video keys: {list(video.keys())[:10]}")
-        return None
-
-    except ImportError:
-        logger.error(f"[{aweme_id}] Scrapling 未安装, 请执行: pip install 'scrapling[fetchers]'")
-        return None
+        return output_path
     except Exception as e:
-        logger.error(f"[{aweme_id}] Scrapling 请求失败: {e}")
+        logger.error(f"[{aweme_id}] 下载失败: {e}")
+        if os.path.exists(output_path):
+            os.remove(output_path)
         return None
 
 
-async def _crop_save(page: Page, video_dir: str, frame_index: int, timestamp: float, label: str):
-    from PIL import Image
-    import io
+def _extract_frames(video_path: str, aweme_id: str, duration: float, video_id: int,
+                    db: SessionLocal, max_sec: float):
+    video_dir = os.path.join(SCREENSHOTS_DIR, aweme_id)
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        logger.error(f"[{aweme_id}] 无法打开视频文件")
+        return 0
 
-    buf = await page.screenshot(full_page=False, type="png")
-    img = Image.open(io.BytesIO(buf))
-    w, h = img.size
+    fps = cap.get(cv2.CAP_PROP_FPS) or 25
+    actual_duration = cap.get(cv2.CAP_PROP_FRAME_COUNT) / fps if fps > 0 else duration
+    process_sec = min(actual_duration, max_sec)
 
-    full_path = os.path.join(video_dir, "full", f"frame_{frame_index:04d}_{timestamp:.1f}s.jpg")
-    subtitle_path = os.path.join(video_dir, "subtitle", f"frame_{frame_index:04d}_{timestamp:.1f}s.jpg")
-    bonsai_path = os.path.join(video_dir, "bonsai", f"frame_{frame_index:04d}_{timestamp:.1f}s.jpg")
+    frame_index = 0
+    bonsai_done = False
+    t = 1.0
+    total_frames = int(process_sec / SCREENSHOT_INTERVAL)
+    logger.info(f"[{aweme_id}] 视频就绪, fps={fps:.1f}, 时长={actual_duration:.0f}s, 将处理{process_sec:.0f}s, 预计{total_frames}帧")
 
-    os.makedirs(os.path.dirname(full_path), exist_ok=True)
-    img.save(full_path, quality=85)
+    while t < process_sec:
+        target_ms = t * 1000
+        cap.set(cv2.CAP_PROP_POS_MSEC, target_ms)
+        ret, frame = cap.read()
 
-    l, t, r, b = SUBTITLE_CROP_RATIO
-    sub_img = img.crop((int(w * l), int(h * t), int(w * r), int(h * b)))
-    os.makedirs(os.path.dirname(subtitle_path), exist_ok=True)
-    sub_img.save(subtitle_path, quality=85)
+        if not ret:
+            logger.warning(f"[{aweme_id}] 帧{t:.1f}s读取失败, 跳过")
+            t += SCREENSHOT_INTERVAL
+            continue
 
-    if label == "bonsai":
-        l, t, r, b = BONSAI_CROP_RATIO
-        bon_img = img.crop((int(w * l), int(h * t), int(w * r), int(h * b)))
-        os.makedirs(os.path.dirname(bonsai_path), exist_ok=True)
-        bon_img.save(bonsai_path, quality=85)
-    else:
-        bonsai_path = None
+        h, w = frame.shape[:2]
+        actual_t = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
 
-    return full_path, subtitle_path, bonsai_path
+        full_path = os.path.join(video_dir, "full", f"frame_{frame_index:04d}_{actual_t:.1f}s.jpg")
+        subtitle_path = os.path.join(video_dir, "subtitle", f"frame_{frame_index:04d}_{actual_t:.1f}s.jpg")
+        bonsai_path = os.path.join(video_dir, "bonsai", f"frame_{frame_index:04d}_{actual_t:.1f}s.jpg")
+
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        cv2.imwrite(full_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+
+        l, t_r, r, b = SUBTITLE_CROP_RATIO
+        sub_frame = frame[int(h * t_r):int(h * b), int(w * l):int(w * r)]
+        os.makedirs(os.path.dirname(subtitle_path), exist_ok=True)
+        cv2.imwrite(subtitle_path, sub_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+
+        label = ""
+        if not bonsai_done and abs(actual_t - BONSAI_FRAME_SECOND) <= 4:
+            label = "bonsai"
+            bonsai_done = True
+            l, t_r, r, b = BONSAI_CROP_RATIO
+            bon_frame = frame[int(h * t_r):int(h * b), int(w * l):int(w * r)]
+            os.makedirs(os.path.dirname(bonsai_path), exist_ok=True)
+            cv2.imwrite(bonsai_path, bon_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        else:
+            bonsai_path = None
+
+        extra = f" [{label}]" if label else ""
+        logger.info(f"[{aweme_id}] 帧{frame_index:03d} @ {actual_t:5.1f}s{extra}")
+
+        db.add(Frame(
+            video_id=video_id,
+            frame_index=frame_index,
+            frame_timestamp=actual_t,
+            full_screenshot=full_path,
+        ))
+        db.add(Subtitle(
+            video_id=video_id,
+            frame_index=frame_index,
+            frame_timestamp=actual_t,
+            screenshot_path=subtitle_path,
+        ))
+        if bonsai_path:
+            db.add(BonsaiScreenshot(
+                video_id=video_id,
+                frame_index=frame_index,
+                frame_timestamp=actual_t,
+                screenshot_path=bonsai_path,
+            ))
+
+        db.commit()
+        frame_index += 1
+        t += SCREENSHOT_INTERVAL
+
+    cap.release()
+    return frame_index
 
 
 async def process_video(video_id: int) -> bool:
@@ -155,7 +233,7 @@ async def process_video(video_id: int) -> bool:
     title = (video.title or "")[:30]
     logger.info(f"[{aweme_id}] ======== 开始处理: {title} (id={video_id}) ========")
 
-    if video.fetch_status == "done":
+    if video.fetch_status in ("done", "screenshotted"):
         logger.info(f"[{aweme_id}] 已处理过, 跳过")
         db.close()
         return True
@@ -164,192 +242,57 @@ async def process_video(video_id: int) -> bool:
     db.commit()
 
     duration = video.duration or 300
-    video_dir = os.path.join(SCREENSHOTS_DIR, aweme_id)
     max_sec = min(duration, float(os.environ.get("PROCESS_MAX_DURATION", str(duration))))
 
     # ── 封面下载 ──
     if video.cover_url:
         try:
-            import httpx
-            cover_path = os.path.join(video_dir, "cover.jpg")
-            os.makedirs(video_dir, exist_ok=True)
+            cover_path = os.path.join(SCREENSHOTS_DIR, aweme_id, "cover.jpg")
+            os.makedirs(os.path.dirname(cover_path), exist_ok=True)
             logger.info(f"[{aweme_id}] 下载封面...")
             r = httpx.get(video.cover_url, headers={"User-Agent": USER_AGENT, "Referer": "https://www.douyin.com/"}, timeout=20)
             if r.status_code == 200 and len(r.content) > 500:
                 with open(cover_path, "wb") as f:
                     f.write(r.content)
                 logger.info(f"[{aweme_id}] 封面已保存 ({len(r.content)} bytes)")
-            else:
-                logger.warning(f"[{aweme_id}] 封面下载失败 status={r.status_code} len={len(r.content)}")
         except Exception as e:
             logger.warning(f"[{aweme_id}] 封面下载异常: {e}")
 
-    # ── 步骤1: 获取视频地址 (Scrapling HTTP, 不需要浏览器) ──
-    video_url = await _fetch_video_url(None, aweme_id)  # page 不再使用
-
+    # ── 提取视频地址 ──
+    video_url = await _extract_video_url(aweme_id)
     if not video_url:
         logger.error(f"[{aweme_id}] 失败: 无法获取视频地址")
         video.fetch_status = "failed"
-        video.error_msg = "无法解析视频地址"
+        video.error_msg = "无法获取视频地址"
         db.commit()
         db.close()
         return False
 
-    # ── 步骤2: 浏览器截图 ──
+    # ── 下载视频 ──
+    video_path = _download_video(aweme_id, video_url)
+    if not video_path:
+        video.fetch_status = "failed"
+        video.error_msg = "视频下载失败"
+        db.commit()
+        db.close()
+        return False
+
+    video.local_video_path = video_path
+    db.commit()
+
+    # ── OpenCV 抽帧 ──
     try:
-        logger.info(f"[{aweme_id}] 启动浏览器...")
-        async with async_playwright() as pw:
-            browser = await pw.chromium.launch(
-                headless=PLAYWRIGHT_HEADLESS,
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--autoplay-policy=no-user-gesture-required",
-                ],
-            )
-            db_proxy = get_setting("http_proxy", PLAYWRIGHT_PROXY) or ""
-            if db_proxy:
-                logger.info(f"[{aweme_id}] 🔗 浏览器已启动, 代理={db_proxy} (API请求将走此代理)")
-            else:
-                logger.warning(f"[{aweme_id}] ⚠️ 浏览器已启动, 未配置代理 (www.douyin.com 可能无法访问)")
-
-            ctx = await browser.new_context(
-                user_agent=USER_AGENT,
-                viewport={"width": 1280, "height": 720},
-                device_scale_factor=1,
-                proxy={"server": db_proxy} if db_proxy else None,
-            )
-
-            cookie_str = get_setting("douyin_cookie", DOUYIN_COOKIE)
-            if cookie_str:
-                cookies = _parse_cookie_string(cookie_str)
-                await ctx.add_cookies(cookies)
-                logger.info(f"[{aweme_id}] 已注入 {len(cookies)} 个 cookie")
-            else:
-                logger.warning(f"[{aweme_id}] 未配置 cookie")
-
-            page = await ctx.new_page()
-
-            # Step 2a: 加载视频播放器
-            logger.info(f"[{aweme_id}] 加载视频播放器...")
-            player_html = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><style>
-* {{ margin:0; padding:0; background:#000; }}
-video {{ width:100vw; height:100vh; object-fit:contain; }}
-</style></head><body>
-<video id="v" src="{video_url}" crossorigin="anonymous" muted playsinline
-       preload="auto"></video>
-</body></html>"""
-
-            await page.set_content(player_html)
-            await page.wait_for_timeout(1500)
-
-            logger.info(f"[{aweme_id}] 等待视频就绪...")
-            ready = await page.evaluate("""
-                () => {
-                    const v = document.getElementById('v');
-                    return new Promise((resolve) => {
-                        if (v.readyState >= 2) { resolve(true); return; }
-                        v.oncanplay = () => resolve(true);
-                        v.onerror = (e) => { console.error('video error', e); resolve(false); };
-                        setTimeout(() => resolve(false), 15000);
-                    });
-                }
-            """)
-
-            if not ready:
-                logger.error(f"[{aweme_id}] 视频加载失败 (CDN可能过期或网络不通)")
-                video.fetch_status = "failed"
-                video.error_msg = "视频无法加载(CDN过期/网络)"
-                db.commit()
-                await browser.close()
-                db.close()
-                return False
-
-            dur = await page.evaluate("document.getElementById('v').duration")
-            logger.info(f"[{aweme_id}] 视频就绪, 实际时长={dur:.0f}s, 将处理 {max_sec:.0f}s")
-            if dur and dur > 0:
-                max_sec = min(dur, max_sec)
-
-            # Step 4: 逐帧截图
-            frame_index = 0
-            bonsai_done = False
-            t = 1.0
-            total_frames = int(max_sec / SCREENSHOT_INTERVAL)
-            logger.info(f"[{aweme_id}] 开始截图, 预计 {total_frames} 帧")
-
-            while t < max_sec:
-                seek_ok = await page.evaluate(f"""
-                    () => {{
-                        const v = document.getElementById('v');
-                        if (!v) return false;
-                        v.currentTime = {t};
-                        return true;
-                    }}
-                """)
-
-                if not seek_ok:
-                    logger.error(f"[{aweme_id}] video元素丢失, 终止(已截图{frame_index}帧)")
-                    break
-
-                await page.wait_for_timeout(2000)
-
-                ct = await page.evaluate("""
-                    () => {
-                        const v = document.getElementById('v');
-                        return v ? v.currentTime : -1;
-                    }
-                """)
-
-                label = ""
-                if not bonsai_done and abs(ct - BONSAI_FRAME_SECOND) <= 4:
-                    label = "bonsai"
-                    bonsai_done = True
-
-                full_path, subtitle_path, bonsai_path = await _crop_save(
-                    page, video_dir, frame_index, ct, label,
-                )
-
-                extra = f" [{label}]" if label else ""
-                logger.info(f"[{aweme_id}] 帧{frame_index:03d} @ {ct:5.1f}s{extra}")
-
-                db.add(Frame(
-                    video_id=video.id,
-                    frame_index=frame_index,
-                    frame_timestamp=ct,
-                    full_screenshot=full_path,
-                ))
-                db.add(Subtitle(
-                    video_id=video.id,
-                    frame_index=frame_index,
-                    frame_timestamp=ct,
-                    screenshot_path=subtitle_path,
-                ))
-                if bonsai_path:
-                    db.add(BonsaiScreenshot(
-                        video_id=video.id,
-                        frame_index=frame_index,
-                        frame_timestamp=ct,
-                        screenshot_path=bonsai_path,
-                    ))
-
-                db.commit()
-                frame_index += 1
-                t += SCREENSHOT_INTERVAL
-
-            await browser.close()
-
+        frame_count = _extract_frames(video_path, aweme_id, duration, video.id, db, max_sec)
         elapsed = (datetime.utcnow() - t_start).total_seconds()
         video.fetch_status = "screenshotted"
         db.commit()
-        logger.info(f"[{aweme_id}] ======== 完成: {frame_index}帧, 耗时{elapsed:.0f}s ========")
+        logger.info(f"[{aweme_id}] ======== 完成: {frame_count}帧, 耗时{elapsed:.0f}s ========")
         return True
-
     except Exception as e:
         elapsed = (datetime.utcnow() - t_start).total_seconds()
-        logger.error(f"[{aweme_id}] 失败(耗时{elapsed:.0f}s): {e}")
-        logger.debug(traceback.format_exc())
+        logger.error(f"[{aweme_id}] 抽帧失败(耗时{elapsed:.0f}s): {e}")
         video.fetch_status = "failed"
-        video.error_msg = f"{type(e).__name__}: {e}"
+        video.error_msg = str(e)
         db.commit()
         return False
     finally:
