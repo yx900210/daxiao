@@ -34,12 +34,14 @@ def _similarity(a: str, b: str) -> float:
 
 def _deduplicate(texts: list[str]) -> list[str]:
     result = []
+    prev = None
     for t in texts:
         if not t:
             continue
-        if result and _similarity(t, result[-1]) > 0.75:
+        if prev and _similarity(t, prev) > 0.90:
             continue
         result.append(t)
+        prev = t
     return result
 
 
