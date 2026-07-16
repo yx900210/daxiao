@@ -35,7 +35,7 @@ def organize_subtitle(full_subtitle: str) -> str | None:
                     {"role": "user", "content": prompt},
                 ],
                 "temperature": 0.3,
-                "max_tokens": 4096,
+                "max_tokens": 16384,
             },
             headers={
                 "Authorization": f"Bearer {LLM_API_KEY}",
