@@ -15,7 +15,7 @@ def _get_ocr():
     if _ocr is None:
         logger.info("正在加载 PaddleOCR 模型...")
         from paddleocr import PaddleOCR
-        _ocr = PaddleOCR(lang="ch", show_log=False)
+        _ocr = PaddleOCR(lang="ch")
         logger.info("PaddleOCR 模型加载完成")
     return _ocr
 
@@ -62,7 +62,7 @@ def process_subtitles(video_id: int):
         if not sub.screenshot_path:
             continue
         try:
-            result = ocr.ocr(sub.screenshot_path, cls=False)
+            result = ocr.ocr(sub.screenshot_path)
             if not result or not result[0]:
                 sub.raw_text = ""
                 continue
