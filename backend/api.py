@@ -220,8 +220,9 @@ def trigger_scrape():
         total, new = loop.run_until_complete(scrape_profile())
         return {"ok": True, "total": total, "new": new}
     except Exception as e:
-        logger.error(f"手动抓取失败: {e}")
-        return {"ok": False, "error": str(e)}
+        import traceback
+        logger.error(f"手动抓取失败: {e}\n{traceback.format_exc()}")
+        return {"ok": False, "error": str(e) or type(e).__name__}
     finally:
         loop.close()
 

@@ -153,18 +153,35 @@ async def scrape_profile() -> tuple[int, int]:
     collected: dict[str, dict] = {}
 
     browser_ws = await _get_browser_ws()
+    logger.info(f"CDP browser WS: {browser_ws[:80]}...")
+
     browser = CDPClient(browser_ws)
     await browser.connect()
+    logger.info("CDP browser 已连接")
 
     try:
         target_id = await browser.create_page()
-        await asyncio.sleep(0.5)
+        logger.info(f"新页面 targetId: {target_id}")
 
-        page_ws = await _get_page_ws(target_id)
+        await asyncio.sleep(1)
+
+        page_ws = None
+        for attempt in range(5):
+            try:
+                page_ws = await _get_page_ws(target_id)
+                break
+            except RuntimeError:
+                await asyncio.sleep(0.5)
+        if not page_ws:
+            raise RuntimeError(f"无法获取 target {target_id} 的 WS 地址")
+
+        logger.info(f"CDP page WS: {page_ws[:80]}...")
         page = CDPClient(page_ws)
         await page.connect()
+        logger.info("CDP page 已连接")
 
         await page.navigate(DOUYIN_PROFILE_URL)
+        logger.info("已导航到主页")
         await asyncio.sleep(3)
 
         for i in range(PAGE_SCROLL_COUNT):
