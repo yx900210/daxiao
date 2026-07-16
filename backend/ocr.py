@@ -13,6 +13,8 @@ _ocr = None
 def _get_ocr():
     global _ocr
     if _ocr is None:
+        import os
+        os.environ.setdefault("FLAGS_use_onednn", "0")
         logger.info("正在加载 PaddleOCR 模型...")
         from paddleocr import PaddleOCR
         _ocr = PaddleOCR(lang="ch")
