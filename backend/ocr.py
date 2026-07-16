@@ -1,26 +1,23 @@
 import re
 import logging
-import warnings
 from difflib import SequenceMatcher
-
-warnings.filterwarnings("ignore", message=".*pin_memory.*")
 
 from backend.database import SessionLocal
 from backend.models import Subtitle, VideoResult
 
 logger = logging.getLogger(__name__)
 
-_reader = None
+_engine = None
 
 
-def _get_reader():
-    global _reader
-    if _reader is None:
-        logger.info("正在加载 EasyOCR 模型...")
-        import easyocr
-        _reader = easyocr.Reader(["ch_sim", "en"], gpu=False)
-        logger.info("EasyOCR 模型加载完成")
-    return _reader
+def _get_engine():
+    global _engine
+    if _engine is None:
+        logger.info("正在加载 RapidOCR 模型...")
+        from rapidocr import RapidOCR
+        _engine = RapidOCR()
+        logger.info("RapidOCR 模型加载完成")
+    return _engine
 
 
 def _clean_text(text: str) -> str:
@@ -58,27 +55,28 @@ def process_subtitles(video_id: int):
         db.close()
         return
 
-    reader = _get_reader()
+    engine = _get_engine()
     texts = []
 
     for sub in subs:
         if not sub.screenshot_path:
             continue
         try:
-            results = reader.readtext(sub.screenshot_path)
-            if not results:
+            result = engine(sub.screenshot_path)
+            if not result.txts:
                 sub.raw_text = ""
                 continue
 
             lines = []
-            max_conf = 0
-            for (_, text, conf) in results:
-                if conf > 0.5:
+            max_score = 0
+            for text, score in zip(result.txts, result.scores):
+                if score > 0.5:
                     lines.append(text)
-                if conf > max_conf:
-                    max_conf = conf
+                if score > max_score:
+                    max_score = score
+
             sub.raw_text = "\n".join(lines)
-            sub.confidence = max_conf
+            sub.confidence = max_score
             texts.append(sub.raw_text)
         except Exception as e:
             logger.warning(f"OCR 帧{sub.frame_index} 失败: {e}")
