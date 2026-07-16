@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import os
 from typing import Optional
@@ -185,6 +186,38 @@ def reset_all():
     init_db()
 
     return {"ok": True, "msg": "所有数据已清空，数据库已重建"}
+
+
+@app.post("/api/videos/{video_id}/viewpoints")
+def extract_video_viewpoints(video_id: int, db: Session = Depends(get_db)):
+    v = db.query(Video).get(video_id)
+    if not v:
+        raise HTTPException(404, "视频不存在")
+
+    result = db.query(VideoResult).filter(VideoResult.video_id == video_id).first()
+    if not result:
+        raise HTTPException(400, "该视频尚未完成字幕识别")
+
+    text = result.organized_subtitle or result.full_subtitle
+    if not text:
+        raise HTTPException(400, "无字幕内容")
+
+    from backend.llm import extract_viewpoints
+    vp = extract_viewpoints(text)
+    if not vp:
+        raise HTTPException(500, "观点提取失败")
+
+    result.stock_summary = "\n".join(f"{i+1}. {p}" for i, p in enumerate(vp["points"]))
+    result.stock_keywords = json.dumps(vp["keywords"], ensure_ascii=False)
+    result.stock_sentiment = vp["sentiment"]
+    db.commit()
+
+    return {
+        "ok": True,
+        "stock_summary": result.stock_summary,
+        "stock_keywords": result.stock_keywords,
+        "stock_sentiment": result.stock_sentiment,
+    }
 
 
 @app.post("/api/videos/{video_id}/organize")

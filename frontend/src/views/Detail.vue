@@ -14,15 +14,22 @@
       <span class="status-badge" :class="'s-' + video.fetch_status">{{ statusLabel(video.fetch_status) }}</span>
     </div>
 
-    <section class="section" v-if="video.result && video.result.stock_summary">
-      <h3>📈 股市观点</h3>
-      <p class="summary">{{ video.result.stock_summary }}</p>
-      <div class="tags" v-if="parsedKeywords.length">
-        <span class="tag" v-for="k in parsedKeywords" :key="k">{{ k }}</span>
+    <section class="section" v-if="video.result && (video.result.organized_subtitle || video.result.full_subtitle)">
+      <h3>📈 股市观点
+        <button class="btn-ai" @click="extractViewpoints" :disabled="viewpointing">
+          {{ viewpointing ? '提炼中...' : '🤖 提炼观点' }}
+        </button>
+      </h3>
+      <div v-if="video.result.stock_summary">
+        <p class="summary">{{ video.result.stock_summary }}</p>
+        <div class="tags" v-if="parsedKeywords.length">
+          <span class="tag" v-for="k in parsedKeywords" :key="k">{{ k }}</span>
+        </div>
+        <div class="sentiment" v-if="video.result.stock_sentiment">
+          情绪: <strong>{{ video.result.stock_sentiment }}</strong>
+        </div>
       </div>
-      <div class="sentiment" v-if="video.result.stock_sentiment">
-        情绪: <strong>{{ video.result.stock_sentiment }}</strong>
-      </div>
+      <p v-else class="hint">点击上方按钮提取核心观点</p>
     </section>
 
     <section class="section" v-if="video.bonsai">
@@ -71,7 +78,7 @@
 <script>
 export default {
   data() {
-    return { video: null, organizing: false, organizeMsg: '' }
+    return { video: null, organizing: false, organizeMsg: '', viewpointing: false, viewpointMsg: '' }
   },
   computed: {
     parsedKeywords() {
@@ -98,6 +105,22 @@ export default {
         this.organizeMsg = e.message
       }
       this.organizing = false
+    },
+    async extractViewpoints() {
+      this.viewpointing = true
+      this.viewpointMsg = ''
+      try {
+        const r = await fetch(`/api/videos/${this.$route.params.id}/viewpoints`, { method: 'POST' })
+        if (!r.ok) { const d = await r.json(); throw new Error(d.detail || '失败') }
+        const d = await r.json()
+        this.video.result.stock_summary = d.stock_summary
+        this.video.result.stock_keywords = d.stock_keywords
+        this.video.result.stock_sentiment = d.stock_sentiment
+        this.viewpointMsg = '提炼完成'
+      } catch(e) {
+        this.viewpointMsg = e.message
+      }
+      this.viewpointing = false
     },
     formatTime(t) { return t ? new Date(t).toLocaleString('zh-CN') : '-' },
     fmtDuration(s) { const m = Math.floor(s / 60); const sec = Math.floor(s % 60); return `${m}:${String(sec).padStart(2,'0')}` },
@@ -140,4 +163,5 @@ export default {
 .btn-ai { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border: none; padding: 4px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; float: right; }
 .btn-ai:disabled { opacity: .5; }
 .msg { font-size: 12px; color: #22c55e; margin-top: 6px; }
+.hint { font-size: 13px; color: #999; }
 </style>
