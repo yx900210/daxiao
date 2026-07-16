@@ -4,7 +4,8 @@
       <h1>🌳 李大霄视频追踪</h1>
       <nav>
         <router-link to="/">首页</router-link>
-        <router-link to="/settings" style="margin-left:16px">设置</router-link>
+        <router-link to="/logs" style="margin-left:12px">日志</router-link>
+        <router-link to="/settings" style="margin-left:12px">设置</router-link>
       </nav>
     </header>
     <main class="app-main">

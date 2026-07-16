@@ -3,7 +3,7 @@ import json
 import logging
 import random
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import unquote
 
 from playwright.async_api import async_playwright, Browser, Page, Response
@@ -55,10 +55,10 @@ def _parse_aweme(aweme: dict) -> dict:
 
     return {
         "douyin_video_id": aweme.get("aweme_id", ""),
-        "title": aweme.get("desc", ""),
+        "title": re.sub(r'#\S+', '', aweme.get("desc", "")).strip(),
         "cover_url": video.get("cover", {}).get("url_list", [""])[0] if video else "",
         "video_url": _extract_play_url(video),
-        "publish_time": create_time,
+        "publish_time": create_time + timedelta(hours=8) if isinstance(create_time, datetime) else create_time,
         "duration": duration,
         "like_count": statistics.get("digg_count", 0),
         "comment_count": statistics.get("comment_count", 0),

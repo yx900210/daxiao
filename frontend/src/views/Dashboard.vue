@@ -55,11 +55,6 @@
       </div>
     </div>
 
-    <div class="log-section" v-if="logLines.length">
-      <h3>📋 最近日志 <button class="btn-tiny" @click="fetchLogs">🔄</button></h3>
-      <pre class="log-box">{{ logLines }}</pre>
-    </div>
-
     <div class="pagination" v-if="total > pageSize">
       <button :disabled="page <= 1" @click="page--">上一页</button>
       <span>{{ page }} / {{ Math.ceil(total / pageSize) }}</span>
@@ -89,7 +84,6 @@ export default {
       scrapeMsg: '',
       processing: false,
       processMsg: '',
-      logLines: '',
     }
   },
   watch: {
@@ -99,7 +93,6 @@ export default {
     mounted() {
       this.fetchStats()
       this.fetchVideos()
-      this.fetchLogs()
     },
   methods: {
     async fetchStats() {
@@ -146,13 +139,6 @@ export default {
       this.fetchStats()
       this.fetchVideos()
     },
-    async fetchLogs() {
-      try {
-        const r = await fetch('/api/logs?lines=80')
-        const d = await r.json()
-        this.logLines = d.lines.join('')
-      } catch(e) {}
-    },
     formatTime(t) { return t ? new Date(t).toLocaleString('zh-CN') : '-' },
     fmtDuration(s) { const m = Math.floor(s / 60); const sec = Math.floor(s % 60); return `${m}:${String(sec).padStart(2,'0')}` },
     statusClass(s) { return 's-' + (s || 'pending') },
@@ -195,7 +181,4 @@ export default {
 .vid-actions { display: flex; align-items: center; }
 .btn-tiny { background: #1a1a2e; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
 .btn-tiny:disabled { opacity: .4; }
-.log-section { background: #fff; border-radius: 8px; padding: 16px; margin-top: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-.log-section h3 { font-size: 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-.log-box { background: #1a1a2e; color: #8f8; font-size: 11px; padding: 10px; border-radius: 6px; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; line-height: 1.5; }
 </style>
