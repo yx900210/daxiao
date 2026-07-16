@@ -50,4 +50,6 @@ def organize_subtitle(full_subtitle: str) -> str | None:
         return content.strip()
     except Exception as e:
         logger.error(f"LLM 调用失败: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            logger.error(f"HTTP {e.response.status_code}: {e.response.text[:500]}")
         return None
