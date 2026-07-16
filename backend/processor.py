@@ -220,7 +220,21 @@ def process_video(video_id: int) -> bool:
         elapsed = (datetime.utcnow() - t_start).total_seconds()
         video.fetch_status = "screenshotted"
         db.commit()
-        logger.info(f"[{aweme_id}] ======== 完成: {frame_count}帧, 耗时{elapsed:.0f}s ========")
+        logger.info(f"[{aweme_id}] ======== 截图完成: {frame_count}帧, 耗时{elapsed:.0f}s ========")
+
+        try:
+            from backend.ocr import process_subtitles
+            logger.info(f"[{aweme_id}] 开始 OCR 识别...")
+            process_subtitles(video.id)
+            video.fetch_status = "done"
+            db.commit()
+            elapsed2 = (datetime.utcnow() - t_start).total_seconds()
+            logger.info(f"[{aweme_id}] ======== 全部完成(含OCR): 总耗时{elapsed2:.0f}s ========")
+        except ImportError:
+            logger.warning(f"[{aweme_id}] PaddleOCR 未安装, 跳过OCR。安装: pip install paddlepaddle paddleocr")
+        except Exception as e:
+            logger.error(f"[{aweme_id}] OCR 失败: {e}")
+
         return True
     except Exception as e:
         elapsed = (datetime.utcnow() - t_start).total_seconds()
