@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from datetime import datetime
 from typing import Optional
 
@@ -39,54 +40,82 @@ async def _extract_video_url(aweme_id: str) -> Optional[str]:
             browser = await pw.chromium.connect_over_cdp(CHROME_CDP_URL)
             page = await browser.new_page()
 
-            # Listen for network requests to capture .mp4/.m3u8 URLs
             video_urls: list[str] = []
 
             async def _on_response(resp):
                 url = resp.url
                 ct = resp.headers.get("content-type", "")
-                if ("video" in ct or ".mp4" in url or "douyinvod" in url or "playaddr" in url.lower()) and url not in video_urls:
+                if (".mp4" in url or "douyinvod" in url or "video" in ct) and url not in video_urls:
                     video_urls.append(url)
-                    logger.info(f"[{aweme_id}] 捕获视频请求: {url[:120]}")
+                    logger.info(f"[{aweme_id}] 捕获: {url[:120]}")
 
             page.on("response", _on_response)
 
-            # Also try request interception for m3u8
-            async def _on_request(req):
-                url = req.url
-                if ".m3u8" in url and url not in video_urls:
-                    video_urls.append(url)
-                    logger.info(f"[{aweme_id}] 捕获m3u8请求: {url[:120]}")
-
-            page.on("request", _on_request)
-
             await page.goto(f"https://www.douyin.com/video/{aweme_id}",
                             wait_until="domcontentloaded", timeout=15000)
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(5000)
 
-            # Try to get video src from DOM
+            # Method 1: DOM video src
             src = await page.evaluate("""() => {
                 const v = document.querySelector('video');
                 if (v && v.src && !v.src.startsWith('blob:')) return v.src;
                 const sources = document.querySelectorAll('source');
-                for (const s of sources) { if (s.src) return s.src; }
+                for (const s of sources) { if (s.src && !s.src.startsWith('blob:')) return s.src; }
                 return null;
             }""")
-            if src:
+            if src and src not in video_urls:
                 video_urls.append(src)
-                logger.info(f"[{aweme_id}] DOM video src: {src[:120]}")
+                logger.info(f"[{aweme_id}] DOM src: {src[:120]}")
+
+            # Method 2: SSR RENDER_DATA
+            if not video_urls:
+                html = await page.content()
+                match = re.search(
+                    r'<script[^>]*id="RENDER_DATA"[^>]*type="application/json"[^>]*>([^<]+)</script>',
+                    html,
+                )
+                if match:
+                    from urllib.parse import unquote
+                    raw = unquote(match.group(1))
+                    try:
+                        data = json.loads(raw)
+                    except json.JSONDecodeError:
+                        data = {}
+
+                    def _find_urls(obj, depth=0):
+                        if depth > 8:
+                            return
+                        if isinstance(obj, dict):
+                            for k, v in obj.items():
+                                if k in ("url_list", "play_addr", "play_addr_h264", "play_addr_265"):
+                                    if isinstance(v, dict):
+                                        for u in v.get("url_list", []):
+                                            if isinstance(u, str) and "http" in u:
+                                                video_urls.append(u)
+                                                logger.info(f"[{aweme_id}] SSR: {k} → {u[:120]}")
+                                    elif isinstance(v, list):
+                                        for u in v:
+                                            if isinstance(u, str) and "http" in u:
+                                                video_urls.append(u)
+                                                logger.info(f"[{aweme_id}] SSR: {k} → {u[:120]}")
+                                _find_urls(v, depth + 1)
+                        elif isinstance(obj, list):
+                            for item in obj:
+                                _find_urls(item, depth + 1)
+
+                    _find_urls(data)
 
             await page.close()
 
-            # Prefer mp4 URLs
             for u in video_urls:
-                if ".mp4" in u or "douyinvod" in u:
-                    logger.info(f"[{aweme_id}] 选择下载地址: {u[:120]}")
+                if "douyinvod" in u or ".mp4" in u:
+                    logger.info(f"[{aweme_id}] 选择: {u[:120]}")
                     return u
             if video_urls:
-                logger.info(f"[{aweme_id}] 选择下载地址: {video_urls[0][:120]}")
+                logger.info(f"[{aweme_id}] 选择: {video_urls[0][:120]}")
                 return video_urls[0]
 
+            logger.error(f"[{aweme_id}] 未捕获到视频地址, 共{len(video_urls)}条")
             return None
     except Exception as e:
         logger.error(f"[{aweme_id}] 提取视频地址失败: {e}")

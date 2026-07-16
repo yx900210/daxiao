@@ -185,6 +185,36 @@ def reset_all():
     return {"ok": True, "msg": "所有数据已清空，数据库已重建"}
 
 
+@app.post("/api/videos/{video_id}/process")
+def process_single(video_id: int):
+    import asyncio
+    import threading
+    from backend.processor import process_video
+
+    def _run():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(process_video(video_id))
+        finally:
+            loop.close()
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return {"ok": True, "msg": f"视频 {video_id} 处理任务已启动"}
+
+
+@app.get("/api/logs")
+def view_logs(lines: int = 50):
+    log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "daxiao.log")
+    try:
+        with open(log_path, "r") as f:
+            all_lines = f.readlines()
+            return {"lines": all_lines[-lines:]}
+    except FileNotFoundError:
+        return {"lines": ["日志文件不存在"]}
+
+
 @app.post("/api/scrape/trigger")
 def trigger_scrape():
     from backend.scraper import scrape_profile
@@ -193,8 +223,6 @@ def trigger_scrape():
     loop = asyncio.new_event_loop()
     try:
         total, new = loop.run_until_complete(scrape_profile())
-        if new > 0:
-            _start_process_background()
         return {"ok": True, "total": total, "new": new}
     except Exception as e:
         logger.error(f"手动抓取失败: {e}")
