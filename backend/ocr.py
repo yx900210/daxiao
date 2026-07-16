@@ -1,6 +1,3 @@
-import os
-os.environ["FLAGS_use_onednn"] = "0"
-
 import re
 import logging
 from difflib import SequenceMatcher
@@ -10,17 +7,17 @@ from backend.models import Subtitle, VideoResult
 
 logger = logging.getLogger(__name__)
 
-_ocr = None
+_reader = None
 
 
-def _get_ocr():
-    global _ocr
-    if _ocr is None:
-        logger.info("正在加载 PaddleOCR 模型...")
-        from paddleocr import PaddleOCR
-        _ocr = PaddleOCR(lang="ch")
-        logger.info("PaddleOCR 模型加载完成")
-    return _ocr
+def _get_reader():
+    global _reader
+    if _reader is None:
+        logger.info("正在加载 EasyOCR 模型...")
+        import easyocr
+        _reader = easyocr.Reader(["ch_sim", "en"], gpu=False)
+        logger.info("EasyOCR 模型加载完成")
+    return _reader
 
 
 def _clean_text(text: str) -> str:
@@ -58,28 +55,27 @@ def process_subtitles(video_id: int):
         db.close()
         return
 
-    ocr = _get_ocr()
+    reader = _get_reader()
     texts = []
 
     for sub in subs:
         if not sub.screenshot_path:
             continue
         try:
-            result = ocr.ocr(sub.screenshot_path)
-            if not result or not result[0]:
+            results = reader.readtext(sub.screenshot_path)
+            if not results:
                 sub.raw_text = ""
                 continue
 
             lines = []
-            for line_info in result[0]:
-                text = line_info[1][0]
-                conf = line_info[1][1]
+            max_conf = 0
+            for (_, text, conf) in results:
                 if conf > 0.5:
                     lines.append(text)
-                if conf > (sub.confidence or 0):
-                    sub.confidence = conf
-
+                if conf > max_conf:
+                    max_conf = conf
             sub.raw_text = "\n".join(lines)
+            sub.confidence = max_conf
             texts.append(sub.raw_text)
         except Exception as e:
             logger.warning(f"OCR 帧{sub.frame_index} 失败: {e}")
