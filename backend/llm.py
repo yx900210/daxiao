@@ -53,8 +53,8 @@ def organize_subtitle(full_subtitle: str) -> str | None:
             
         content = data["choices"][0]["message"].get("content") or ""
         if not content:
-            content = data["choices"][0]["message"].get("reasoning_content") or ""
-            logger.warning(f"content为空, 使用reasoning_content: {len(content)}字符")
+            logger.error(f"LLM返回空内容(max_tokens可能不够), finish_reason={data['choices'][0].get('finish_reason')}")
+            return None
 
         if not content:
             logger.error(f"LLM返回空内容, 完整message: {json.dumps(data['choices'][0]['message'], ensure_ascii=False)[:1000]}")
