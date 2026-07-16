@@ -223,6 +223,33 @@ async def scrape_profile() -> tuple[int, int]:
                         collected[vid] = v
                 logger.info(f"从SSR数据提取到 {len(ssr_videos)} 个视频")
             await _scroll_page(page)
+
+            need_urls = [vid for vid, item in collected.items() if not item.get("video_url")]
+            if need_urls:
+                logger.info(f"补全 {len(need_urls)} 个视频的下载地址...")
+                for vid in need_urls:
+                    try:
+                        body = await page.evaluate("""
+                            async (id) => {
+                                const url = 'https://www.douyin.com/aweme/v1/web/aweme/detail/?' +
+                                    new URLSearchParams({ aweme_id: id, aid: '6383' }).toString();
+                                const ctrl = new AbortController();
+                                setTimeout(() => ctrl.abort(), 10000);
+                                const resp = await fetch(url, { credentials: 'include', signal: ctrl.signal });
+                                return resp.ok ? await resp.text() : '';
+                            }
+                        """, vid)
+                        if body:
+                            data = json.loads(body)
+                            video_obj = data.get("aweme_detail", {}).get("video", {})
+                            url = _extract_play_url(video_obj)
+                            if url:
+                                collected[vid]["video_url"] = url
+                                logger.info(f"[{vid}] 视频地址: {url[:100]}...")
+                            else:
+                                logger.warning(f"[{vid}] 详情API无播放地址")
+                    except Exception as e:
+                        logger.warning(f"[{vid}] 获取视频地址失败: {e}")
         except Exception as e:
             logger.error(f"抓取失败: {e}")
             raise
