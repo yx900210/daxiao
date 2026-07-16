@@ -188,17 +188,11 @@ def reset_all():
 
 @app.post("/api/videos/{video_id}/process")
 def process_single(video_id: int):
-    import asyncio
     import threading
     from backend.processor import process_video
 
     def _run():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(process_video(video_id))
-        finally:
-            loop.close()
+        process_video(video_id)
 
     t = threading.Thread(target=_run, daemon=True)
     t.start()
@@ -242,7 +236,6 @@ def _start_process_background():
     import threading
 
     def _run():
-        import asyncio as _asyncio
         from backend.processor import process_video
         from backend.database import SessionLocal
         from backend.models import Video
@@ -260,10 +253,7 @@ def _start_process_background():
         for i, vid in enumerate(pending_ids):
             logger.info(f"[后台处理] ({i+1}/{total}) 开始处理视频 id={vid}")
             try:
-                loop = _asyncio.new_event_loop()
-                _asyncio.set_event_loop(loop)
-                ok = loop.run_until_complete(process_video(vid))
-                loop.close()
+                ok = process_video(vid)
                 logger.info(f"[后台处理] ({i+1}/{total}) id={vid} {'成功' if ok else '失败'}")
             except Exception as e:
                 logger.error(f"[后台处理] ({i+1}/{total}) id={vid} 异常: {e}")
@@ -276,15 +266,12 @@ def _start_process_background():
 
 @app.post("/api/videos/{video_id}/reprocess")
 def reprocess_video(video_id: int):
-    import asyncio
     from backend.processor import process_video
-
-    loop = asyncio.new_event_loop()
     try:
-        ok = loop.run_until_complete(process_video(video_id))
+        ok = process_video(video_id)
         return {"ok": ok}
-    finally:
-        loop.close()
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 # ── Screenshot static files ────────────────────────────

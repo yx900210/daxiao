@@ -48,12 +48,23 @@ def _parse_aweme(aweme: dict) -> dict:
         "douyin_video_id": aweme.get("aweme_id", ""),
         "title": aweme.get("desc", ""),
         "cover_url": video.get("cover", {}).get("url_list", [""])[0] if video else "",
+        "video_url": _extract_play_url(video),
         "publish_time": create_time,
         "duration": duration,
         "like_count": statistics.get("digg_count", 0),
         "comment_count": statistics.get("comment_count", 0),
         "share_count": statistics.get("share_count", 0),
     }
+
+
+def _extract_play_url(video: dict) -> str:
+    for key in ("play_addr_h264", "play_addr", "play_addr_265"):
+        pa = video.get(key, {})
+        urls = pa.get("url_list", []) if isinstance(pa, dict) else []
+        for u in urls:
+            if isinstance(u, str) and u.startswith("http"):
+                return u
+    return ""
 
 
 def _parse_api_response(body: str) -> list[dict]:
@@ -128,6 +139,7 @@ def _db_add_videos(video_list: list[dict]) -> int:
                 douyin_video_id=douyin_id,
                 title=v.get("title", ""),
                 cover_url=v.get("cover_url", ""),
+                video_url=v.get("video_url", ""),
                 publish_time=v.get("publish_time"),
                 duration=v.get("duration", 0),
                 like_count=v.get("like_count", 0),

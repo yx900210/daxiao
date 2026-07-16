@@ -1,16 +1,10 @@
-import asyncio
-import json
 import logging
 import os
-import re
 from datetime import datetime
 from typing import Optional
 
 import cv2
 import httpx
-from PIL import Image
-import io
-from playwright.async_api import async_playwright
 
 from backend.config import (
     SCREENSHOT_INTERVAL,
@@ -19,8 +13,6 @@ from backend.config import (
     BONSAI_CROP_RATIO,
     SCREENSHOTS_DIR,
     VIDEOS_DIR,
-    DATA_DIR,
-    CHROME_CDP_URL,
 )
 from backend.database import SessionLocal
 from backend.models import Video, Frame, Subtitle, BonsaiScreenshot
@@ -32,94 +24,6 @@ USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/150.0.0.0 Safari/537.36"
 )
-
-
-async def _extract_video_url(aweme_id: str) -> Optional[str]:
-    try:
-        async with async_playwright() as pw:
-            browser = await pw.chromium.connect_over_cdp(CHROME_CDP_URL)
-            page = await browser.new_page()
-
-            video_urls: list[str] = []
-
-            async def _on_response(resp):
-                url = resp.url
-                ct = resp.headers.get("content-type", "")
-                if (".mp4" in url or "douyinvod" in url or "video" in ct) and url not in video_urls:
-                    video_urls.append(url)
-                    logger.info(f"[{aweme_id}] 捕获: {url[:120]}")
-
-            page.on("response", _on_response)
-
-            await page.goto(f"https://www.douyin.com/video/{aweme_id}",
-                            wait_until="domcontentloaded", timeout=15000)
-            await page.wait_for_timeout(5000)
-
-            # Method 1: DOM video src
-            src = await page.evaluate("""() => {
-                const v = document.querySelector('video');
-                if (v && v.src && !v.src.startsWith('blob:')) return v.src;
-                const sources = document.querySelectorAll('source');
-                for (const s of sources) { if (s.src && !s.src.startsWith('blob:')) return s.src; }
-                return null;
-            }""")
-            if src and src not in video_urls:
-                video_urls.append(src)
-                logger.info(f"[{aweme_id}] DOM src: {src[:120]}")
-
-            # Method 2: SSR RENDER_DATA
-            if not video_urls:
-                html = await page.content()
-                match = re.search(
-                    r'<script[^>]*id="RENDER_DATA"[^>]*type="application/json"[^>]*>([^<]+)</script>',
-                    html,
-                )
-                if match:
-                    from urllib.parse import unquote
-                    raw = unquote(match.group(1))
-                    try:
-                        data = json.loads(raw)
-                    except json.JSONDecodeError:
-                        data = {}
-
-                    def _find_urls(obj, depth=0):
-                        if depth > 8:
-                            return
-                        if isinstance(obj, dict):
-                            for k, v in obj.items():
-                                if k in ("url_list", "play_addr", "play_addr_h264", "play_addr_265"):
-                                    if isinstance(v, dict):
-                                        for u in v.get("url_list", []):
-                                            if isinstance(u, str) and "http" in u:
-                                                video_urls.append(u)
-                                                logger.info(f"[{aweme_id}] SSR: {k} → {u[:120]}")
-                                    elif isinstance(v, list):
-                                        for u in v:
-                                            if isinstance(u, str) and "http" in u:
-                                                video_urls.append(u)
-                                                logger.info(f"[{aweme_id}] SSR: {k} → {u[:120]}")
-                                _find_urls(v, depth + 1)
-                        elif isinstance(obj, list):
-                            for item in obj:
-                                _find_urls(item, depth + 1)
-
-                    _find_urls(data)
-
-            await page.close()
-
-            for u in video_urls:
-                if "douyinvod" in u or ".mp4" in u:
-                    logger.info(f"[{aweme_id}] 选择: {u[:120]}")
-                    return u
-            if video_urls:
-                logger.info(f"[{aweme_id}] 选择: {video_urls[0][:120]}")
-                return video_urls[0]
-
-            logger.error(f"[{aweme_id}] 未捕获到视频地址, 共{len(video_urls)}条")
-            return None
-    except Exception as e:
-        logger.error(f"[{aweme_id}] 提取视频地址失败: {e}")
-        return None
 
 
 def _download_video(aweme_id: str, video_url: str) -> Optional[str]:
@@ -248,7 +152,7 @@ def _extract_frames(video_path: str, aweme_id: str, duration: float, video_id: i
     return frame_index
 
 
-async def process_video(video_id: int) -> bool:
+def process_video(video_id: int) -> bool:
     t_start = datetime.utcnow()
 
     db = SessionLocal()
@@ -287,15 +191,16 @@ async def process_video(video_id: int) -> bool:
         except Exception as e:
             logger.warning(f"[{aweme_id}] 封面下载异常: {e}")
 
-    # ── 提取视频地址 ──
-    video_url = await _extract_video_url(aweme_id)
+    # ── 视频地址 ──
+    video_url = video.video_url
     if not video_url:
-        logger.error(f"[{aweme_id}] 失败: 无法获取视频地址")
+        logger.error(f"[{aweme_id}] 失败: 无视频地址")
         video.fetch_status = "failed"
-        video.error_msg = "无法获取视频地址"
+        video.error_msg = "无视频地址"
         db.commit()
         db.close()
         return False
+    logger.info(f"[{aweme_id}] 视频地址: {video_url[:100]}...")
 
     # ── 下载视频 ──
     video_path = _download_video(aweme_id, video_url)

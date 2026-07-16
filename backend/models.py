@@ -19,6 +19,7 @@ class Video(Base):
     comment_count = Column(Integer, default=0)
     share_count = Column(Integer, default=0)
     local_video_path = Column(Text)
+    video_url = Column(Text)
     fetch_status = Column(String(16), default="pending", index=True)
     error_msg = Column(Text)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
