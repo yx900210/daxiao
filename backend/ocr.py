@@ -1,6 +1,9 @@
 import re
 import logging
+import warnings
 from difflib import SequenceMatcher
+
+warnings.filterwarnings("ignore", message=".*pin_memory.*")
 
 from backend.database import SessionLocal
 from backend.models import Subtitle, VideoResult
