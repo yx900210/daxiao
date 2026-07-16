@@ -8,7 +8,7 @@ echo "=== 李大霄视频追踪系统 部署脚本 ==="
 
 if [ ! -f "$APP_DIR/.env" ]; then
     echo "[ERROR] 请先创建 $APP_DIR/.env 配置文件"
-    echo "  参考 backend/.env.example"
+    echo "  参考 .env.example"
     exit 1
 fi
 
@@ -21,8 +21,6 @@ fi
 
 $VENV_DIR/bin/pip install --upgrade pip
 $VENV_DIR/bin/pip install -r "$APP_DIR/backend/requirements.txt"
-
-echo "安装 Chromium 及系统依赖（可能需要几分钟）..."
 $VENV_DIR/bin/python -m playwright install --with-deps chromium
 
 $VENV_DIR/bin/python -m backend.main init-db
