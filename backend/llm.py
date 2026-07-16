@@ -45,6 +45,12 @@ def organize_subtitle(full_subtitle: str) -> str | None:
         )
         resp.raise_for_status()
         data = resp.json()
+        logger.info(f"LLM 响应状态码: {resp.status_code}, 响应keys: {list(data.keys())}, 总chars: {len(resp.text)}")
+        
+        if "choices" not in data:
+            logger.error(f"LLM 响应格式异常, 完整响应: {json.dumps(data, ensure_ascii=False)[:1000]}")
+            return None
+            
         content = data["choices"][0]["message"]["content"]
         logger.info(f"LLM 整理完成: {len(full_subtitle)} → {len(content)} 字符")
         return content.strip()
