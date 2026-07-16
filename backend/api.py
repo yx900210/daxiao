@@ -186,6 +186,26 @@ def reset_all():
     return {"ok": True, "msg": "所有数据已清空，数据库已重建"}
 
 
+@app.post("/api/videos/{video_id}/organize")
+def organize_video(video_id: int, db: Session = Depends(get_db)):
+    v = db.query(Video).get(video_id)
+    if not v:
+        raise HTTPException(404, "视频不存在")
+
+    result = db.query(VideoResult).filter(VideoResult.video_id == video_id).first()
+    if not result or not result.full_subtitle:
+        raise HTTPException(400, "该视频尚未完成字幕识别")
+
+    from backend.llm import organize_subtitle
+    organized = organize_subtitle(result.full_subtitle)
+    if not organized:
+        raise HTTPException(500, "LLM 调用失败")
+
+    result.full_subtitle = organized
+    db.commit()
+    return {"ok": True, "text": organized}
+
+
 @app.post("/api/videos/{video_id}/process")
 def process_single(video_id: int):
     import threading

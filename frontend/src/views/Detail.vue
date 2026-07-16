@@ -37,8 +37,13 @@
     </section>
 
     <section class="section" v-if="video.result && video.result.full_subtitle">
-      <h3>📝 完整字幕</h3>
+      <h3>📝 完整字幕
+        <button class="btn-ai" @click="organize" :disabled="organizing">
+          {{ organizing ? '整理中...' : '🤖 AI 整理' }}
+        </button>
+      </h3>
       <pre class="subtitle-text">{{ video.result.full_subtitle }}</pre>
+      <p class="msg" v-if="organizeMsg">{{ organizeMsg }}</p>
     </section>
 
     <section class="section" v-if="video.subtitles && video.subtitles.length">
@@ -65,7 +70,7 @@
 <script>
 export default {
   data() {
-    return { video: null }
+    return { video: null, organizing: false, organizeMsg: '' }
   },
   computed: {
     parsedKeywords() {
@@ -78,6 +83,20 @@ export default {
     async fetchDetail() {
       const r = await fetch(`/api/videos/${this.$route.params.id}`)
       this.video = await r.json()
+    },
+    async organize() {
+      this.organizing = true
+      this.organizeMsg = ''
+      try {
+        const r = await fetch(`/api/videos/${this.$route.params.id}/organize`, { method: 'POST' })
+        if (!r.ok) { const d = await r.json(); throw new Error(d.detail || '失败') }
+        const d = await r.json()
+        this.video.result.full_subtitle = d.text
+        this.organizeMsg = '整理完成'
+      } catch(e) {
+        this.organizeMsg = e.message
+      }
+      this.organizing = false
     },
     formatTime(t) { return t ? new Date(t).toLocaleString('zh-CN') : '-' },
     fmtDuration(s) { const m = Math.floor(s / 60); const sec = Math.floor(s % 60); return `${m}:${String(sec).padStart(2,'0')}` },
@@ -116,4 +135,7 @@ export default {
 .meta-section p { font-size: 13px; margin-bottom: 4px; color: #666; }
 .error { color: #ef4444; }
 .loading { text-align: center; padding: 40px; color: #888; }
+.btn-ai { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border: none; padding: 4px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; float: right; }
+.btn-ai:disabled { opacity: .5; }
+.msg { font-size: 12px; color: #22c55e; margin-top: 6px; }
 </style>

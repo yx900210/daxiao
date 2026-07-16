@@ -32,3 +32,7 @@ SCRAPE_TIMEOUT = int(os.getenv("SCRAPE_TIMEOUT", "60000"))
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://opencode.ai/zen/go/v1")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-v4-flash")
