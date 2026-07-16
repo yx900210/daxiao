@@ -32,7 +32,12 @@ def _parse_aweme(aweme: dict) -> dict:
         duration = duration / 1000.0
 
     create_time = aweme.get("create_time")
-    if not create_time:
+    if isinstance(create_time, (int, float)):
+        if create_time > 1000000000000:
+            create_time = datetime.fromtimestamp(create_time / 1000.0)
+        else:
+            create_time = datetime.fromtimestamp(create_time)
+    elif not create_time:
         try:
             aweme_id = int(aweme.get("aweme_id", "0"))
             ts = aweme_id >> 32
