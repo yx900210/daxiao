@@ -109,6 +109,7 @@ def get_video(video_id: int, db: Session = Depends(get_db)):
         "created_at": v.created_at.isoformat() if v.created_at else None,
         "result": {
             "full_subtitle": result.full_subtitle if result else None,
+            "organized_subtitle": result.organized_subtitle if result else None,
             "stock_summary": result.stock_summary if result else None,
             "stock_keywords": result.stock_keywords if result else None,
             "stock_sentiment": result.stock_sentiment if result else None,
@@ -201,7 +202,7 @@ def organize_video(video_id: int, db: Session = Depends(get_db)):
     if not organized:
         raise HTTPException(500, "LLM 调用失败")
 
-    result.full_subtitle = organized
+    result.organized_subtitle = organized
     db.commit()
     return {"ok": True, "text": organized}
 

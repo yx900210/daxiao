@@ -85,6 +85,7 @@ class VideoResult(Base):
     video_id = Column(Integer, ForeignKey("videos.id"), unique=True, nullable=False)
     full_subtitle = Column(Text)
     subtitle_word_count = Column(Integer)
+    organized_subtitle = Column(Text)
     stock_summary = Column(Text)
     stock_keywords = Column(Text)
     stock_sentiment = Column(String(8))

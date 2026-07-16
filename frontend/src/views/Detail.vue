@@ -42,7 +42,8 @@
           {{ organizing ? '整理中...' : '🤖 AI 整理' }}
         </button>
       </h3>
-      <pre class="subtitle-text">{{ video.result.full_subtitle }}</pre>
+      <pre class="subtitle-text" v-if="video.result.organized_subtitle">{{ video.result.organized_subtitle }}</pre>
+      <pre class="subtitle-text subtitle-raw" v-else>{{ video.result.full_subtitle }}</pre>
       <p class="msg" v-if="organizeMsg">{{ organizeMsg }}</p>
     </section>
 
@@ -91,7 +92,7 @@ export default {
         const r = await fetch(`/api/videos/${this.$route.params.id}/organize`, { method: 'POST' })
         if (!r.ok) { const d = await r.json(); throw new Error(d.detail || '失败') }
         const d = await r.json()
-        this.video.result.full_subtitle = d.text
+        this.video.result.organized_subtitle = d.text
         this.organizeMsg = '整理完成'
       } catch(e) {
         this.organizeMsg = e.message
@@ -129,6 +130,7 @@ export default {
 .sentiment { margin-top: 8px; font-size: 14px; }
 .meaning { margin-top: 8px; font-style: italic; color: #555; }
 .subtitle-text { white-space: pre-wrap; font-size: 13px; line-height: 1.8; background: #f9f9f9; padding: 12px; border-radius: 6px; }
+.subtitle-raw { color: #666; font-size: 12px; }
 .ocr-list { max-height: 400px; overflow-y: auto; }
 .ocr-item { padding: 6px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; }
 .ocr-ts { color: #999; margin-right: 10px; font-family: monospace; }
