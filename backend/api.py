@@ -229,6 +229,39 @@ def reset_all():
         shutil.rmtree(vdir)
     init_db()
 
+    db = next(get_db())
+    defaults = {
+        "prompt_organize": """请将以下视频字幕整理为段落化的完整文稿。要求：
+1. 修正明显的 OCR 识别错误
+2. 正确断句，合理划分段落
+3. 补全标点符号（逗号、句号、问号等）
+4. 保持原文的表达风格和措辞，不要添加原文没有的内容
+
+字幕原文：
+{subtitle}
+
+请输出整理后的完整文稿：""",
+        "prompt_viewpoint": """请从以下文稿中提炼核心观点，按 JSON 格式输出。要求：
+1. 提取股市相关的核心观点（3-8 条），每条一句话概括
+2. 判断整体情绪倾向（看多/看空/中性）
+3. 提取 3-5 个关键词标签
+
+文稿：
+{text}
+
+输出格式（仅输出 JSON，不要其他内容）：
+{{
+  "points": ["观点1", "观点2", ...],
+  "sentiment": "看多/看空/中性",
+  "keywords": ["标签1", "标签2", ...]
+}}""",
+    }
+    for k, v in defaults.items():
+        if not db.query(Setting).get(k):
+            db.add(Setting(key=k, value=v))
+    db.commit()
+    db.close()
+
     return {"ok": True, "msg": "所有数据已清空，数据库已重建"}
 
 
