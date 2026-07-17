@@ -153,6 +153,52 @@ def _extract_frames(video_path: str, aweme_id: str, duration: float, video_id: i
     return frame_index
 
 
+def _run_ai_steps(video_id: int):
+    from backend.database import SessionLocal
+    from backend.models import VideoResult
+
+    db = SessionLocal()
+    result = db.query(VideoResult).filter(VideoResult.video_id == video_id).first()
+    if not result or not result.full_subtitle:
+        logger.warning(f"[vid={video_id}] 无字幕，跳过AI步骤")
+        db.close()
+        return
+    db.close()
+
+    try:
+        from backend.llm import organize_subtitle, extract_viewpoints
+    except ImportError:
+        logger.warning("AI模块未加载")
+        return
+
+    if not result.organized_subtitle:
+        logger.info(f"[vid={video_id}] AI 整理段落...")
+        organized = organize_subtitle(result.full_subtitle)
+        if organized:
+            db = SessionLocal()
+            r = db.query(VideoResult).filter(VideoResult.video_id == video_id).first()
+            r.organized_subtitle = organized
+            db.commit()
+            result.organized_subtitle = organized
+            db.close()
+            logger.info(f"[vid={video_id}] AI 整理完成")
+
+    if result.organized_subtitle or result.full_subtitle:
+        text = result.organized_subtitle or result.full_subtitle
+        db = SessionLocal()
+        r = db.query(VideoResult).filter(VideoResult.video_id == video_id).first()
+        if not r.stock_summary:
+            logger.info(f"[vid={video_id}] 提炼核心观点...")
+            vp = extract_viewpoints(text)
+            if vp:
+                r.stock_summary = "\n".join(f"{i+1}. {p}" for i, p in enumerate(vp.get("points", [])))
+                r.stock_keywords = json.dumps(vp.get("keywords", []), ensure_ascii=False)
+                r.stock_sentiment = vp.get("sentiment", "中性")
+                db.commit()
+                logger.info(f"[vid={video_id}] 观点提炼完成 ({len(vp.get('points',[]))}条)")
+        db.close()
+
+
 def process_video(video_id: int) -> bool:
     t_start = datetime.utcnow()
 
@@ -168,14 +214,20 @@ def process_video(video_id: int) -> bool:
     logger.info(f"[{aweme_id}] ======== 开始处理: {title} (id={video_id}) ========")
 
     if video.fetch_status == "done":
-        logger.info(f"[{aweme_id}] 已处理过, 跳过")
+        _result = db.query(VideoResult).filter(VideoResult.video_id == video_id).first()
+        if _result and _result.full_subtitle and not _result.organized_subtitle:
+            logger.info(f"[{aweme_id}] 已完成, 补充AI整理+观点...")
+            _run_ai_steps(video.id)
+        else:
+            logger.info(f"[{aweme_id}] 已处理过, 跳过")
         db.close()
         return True
 
     if video.fetch_status == "screenshotted" and video.local_video_path:
-        logger.info(f"[{aweme_id}] 已截图, 仅重跑OCR")
+        logger.info(f"[{aweme_id}] 已截图, 运行OCR+AI...")
         from backend.ocr import process_subtitles
         process_subtitles(video.id)
+        _run_ai_steps(video.id)
         video.fetch_status = "done"
         db.commit()
         db.close()
@@ -238,37 +290,7 @@ def process_video(video_id: int) -> bool:
             process_subtitles(video.id)
             logger.info(f"[{aweme_id}] OCR 完成")
 
-            from backend.database import SessionLocal
-            _db = SessionLocal()
-            result = _db.query(VideoResult).filter(VideoResult.video_id == video.id).first()
-            _db.close()
-
-            if result and result.full_subtitle:
-                try:
-                    from backend.llm import organize_subtitle, extract_viewpoints
-                    logger.info(f"[{aweme_id}] AI 整理段落...")
-                    organized = organize_subtitle(result.full_subtitle)
-                    if organized:
-                        _db = SessionLocal()
-                        r = _db.query(VideoResult).filter(VideoResult.video_id == video.id).first()
-                        r.organized_subtitle = organized
-                        _db.commit()
-                        _db.close()
-                        logger.info(f"[{aweme_id}] AI 整理完成")
-
-                        logger.info(f"[{aweme_id}] 提炼核心观点...")
-                        vp = extract_viewpoints(organized)
-                        if vp:
-                            _db = SessionLocal()
-                            r = _db.query(VideoResult).filter(VideoResult.video_id == video.id).first()
-                            r.stock_summary = "\n".join(f"{i+1}. {p}" for i, p in enumerate(vp.get("points", [])))
-                            r.stock_keywords = json.dumps(vp.get("keywords", []), ensure_ascii=False)
-                            r.stock_sentiment = vp.get("sentiment", "中性")
-                            _db.commit()
-                            _db.close()
-                            logger.info(f"[{aweme_id}] 观点提炼完成 ({len(vp.get('points',[]))}条)")
-                except (ImportError, Exception) as e:
-                    logger.warning(f"[{aweme_id}] AI 步骤跳过: {e}")
+            _run_ai_steps(video.id)
 
             video.fetch_status = "done"
             db.commit()
