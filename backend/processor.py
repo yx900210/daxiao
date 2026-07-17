@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from datetime import datetime
@@ -235,6 +236,40 @@ def process_video(video_id: int) -> bool:
             from backend.ocr import process_subtitles
             logger.info(f"[{aweme_id}] 开始 OCR 识别...")
             process_subtitles(video.id)
+            logger.info(f"[{aweme_id}] OCR 完成")
+
+            from backend.database import SessionLocal
+            _db = SessionLocal()
+            result = _db.query(VideoResult).filter(VideoResult.video_id == video.id).first()
+            _db.close()
+
+            if result and result.full_subtitle:
+                try:
+                    from backend.llm import organize_subtitle, extract_viewpoints
+                    logger.info(f"[{aweme_id}] AI 整理段落...")
+                    organized = organize_subtitle(result.full_subtitle)
+                    if organized:
+                        _db = SessionLocal()
+                        r = _db.query(VideoResult).filter(VideoResult.video_id == video.id).first()
+                        r.organized_subtitle = organized
+                        _db.commit()
+                        _db.close()
+                        logger.info(f"[{aweme_id}] AI 整理完成")
+
+                        logger.info(f"[{aweme_id}] 提炼核心观点...")
+                        vp = extract_viewpoints(organized)
+                        if vp:
+                            _db = SessionLocal()
+                            r = _db.query(VideoResult).filter(VideoResult.video_id == video.id).first()
+                            r.stock_summary = "\n".join(f"{i+1}. {p}" for i, p in enumerate(vp.get("points", [])))
+                            r.stock_keywords = json.dumps(vp.get("keywords", []), ensure_ascii=False)
+                            r.stock_sentiment = vp.get("sentiment", "中性")
+                            _db.commit()
+                            _db.close()
+                            logger.info(f"[{aweme_id}] 观点提炼完成 ({len(vp.get('points',[]))}条)")
+                except (ImportError, Exception) as e:
+                    logger.warning(f"[{aweme_id}] AI 步骤跳过: {e}")
+
             video.fetch_status = "done"
             db.commit()
             elapsed2 = (datetime.utcnow() - t_start).total_seconds()
