@@ -44,27 +44,28 @@
     </div>
 
     <div class="card-list" v-if="videos.length">
-      <div class="video-card" v-for="v in videos" :key="v.id" @click="goDetail(v.id)">
-        <div class="card-cover">
+      <div class="video-card" v-for="v in videos" :key="v.id">
+        <div class="card-cover" @click.stop="playVideo(v)">
           <img v-if="v.cover_url" :src="v.cover_url" class="cover-img" />
           <div class="cover-placeholder" v-else>🎬</div>
+          <div class="play-overlay">▶</div>
           <span class="duration-badge">{{ fmtDuration(v.duration) }}</span>
           <span class="status-pill" :class="'s-' + v.fetch_status">{{ statusLabel(v.fetch_status) }}</span>
         </div>
-        <div class="card-body">
+        <div class="card-body" @click="goDetail(v.id)">
           <h3 class="card-title">{{ v.title || '无标题' }}</h3>
           <div class="card-meta">
             <span v-if="v.publish_time">{{ formatTime(v.publish_time) }}</span>
             <span class="dot" v-if="v.publish_time">·</span>
             <span>❤️ {{ fmtCount(v.like_count) }}</span>
           </div>
-          <p class="card-viewpoint" v-if="v.stock_summary">💡 {{ firstLine(v.stock_summary) }}</p>
-          <p class="card-preview" v-if="v.subtitle_preview" :class="{ expanded: v._expanded }">
-            {{ v._expanded ? (v.subtitle_preview_full || v.subtitle_preview) : v.subtitle_preview }}
-            <span class="expand-link" @click.stop="toggleExpand(v)" v-if="hasMore(v)">
-              {{ v._expanded ? '收起▲' : '展开▼' }}
-            </span>
+          <p class="card-viewpoint" v-if="v.stock_summary">💡 {{ viewpointPreview(v.stock_summary) }}</p>
+          <p class="card-preview" v-if="v.subtitle_preview" :class="{ expanded: isExpanded(v.id) }">
+            {{ isExpanded(v.id) ? (v.subtitle_preview_full || v.subtitle_preview) : v.subtitle_preview }}
           </p>
+          <span class="expand-link" @click.stop="toggleExpand(v)" v-if="hasMore(v)">
+            {{ isExpanded(v.id) ? '收起▲' : '展开▼' }}
+          </span>
           <div class="card-tags" v-if="parsedKeywords(v).length">
             <span class="tag" v-for="k in parsedKeywords(v).slice(0,4)" :key="k">{{ k }}</span>
           </div>
@@ -72,6 +73,13 @@
         <div class="card-actions" @click.stop>
           <button class="act-btn" @click="processOne(v.id)" :disabled="v.fetch_status === 'processing'" title="处理">▶</button>
         </div>
+      </div>
+    </div>
+
+    <div class="video-modal" v-if="playingVideo" @click="closePlayer">
+      <div class="modal-content" @click.stop>
+        <span class="modal-close" @click="closePlayer">✕</span>
+        <video :src="playingVideo" controls autoplay class="modal-video"></video>
       </div>
     </div>
 
@@ -96,6 +104,8 @@ export default {
         { label: '失败', value: 'failed' },
       ],
       scraping: false, scrapeMsg: '', processing: false, processMsg: '',
+      expandedIds: new Set(),
+      playingVideo: '',
     }
   },
   watch: {
@@ -136,7 +146,23 @@ export default {
     },
     goDetail(id) { this.$router.push(`/video/${id}`) },
     hasMore(v) { return (v.subtitle_preview_full || v.subtitle_preview || '').length > 80 },
-    toggleExpand(v) { this.$set(v, '_expanded', !v._expanded) },
+    isExpanded(id) { return this.expandedIds.has(id) },
+    toggleExpand(v) {
+      if (this.expandedIds.has(v.id)) this.expandedIds.delete(v.id)
+      else this.expandedIds.add(v.id)
+      this.expandedIds = new Set(this.expandedIds)
+    },
+    viewpointPreview(s) {
+      if (!s) return ''
+      const lines = s.split('\n').filter(l => l.trim())
+      return lines.slice(0, 3).join(' · ')
+    },
+    playVideo(v) {
+      if (v.douyin_video_id) {
+        this.playingVideo = `/videos/${v.douyin_video_id}.mp4`
+      }
+    },
+    closePlayer() { this.playingVideo = '' },
     firstLine(s) { if (!s) return ''; const idx = s.indexOf('\n'); return idx > 0 ? s.substring(0, idx) : s.substring(0, 80) },
     formatTime(t) { return t ? new Date(t).toLocaleString('zh-CN') : '-' },
     fmtDuration(s) { const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s % 60)).padStart(2,'0')}` },
@@ -169,8 +195,10 @@ export default {
 .card-list { display: flex; flex-direction: column; gap: 16px; }
 .video-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); cursor: pointer; transition: all .2s; display: flex; overflow: hidden; }
 .video-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,.1); }
-.card-cover { width: 280px; flex-shrink: 0; position: relative; background: #1a1a2e; min-height: 210px; }
+.card-cover { width: 280px; flex-shrink: 0; position: relative; background: #1a1a2e; min-height: 210px; cursor: pointer; }
 .cover-img { width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; background: #000; }
+.play-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 40px; color: rgba(255,255,255,.8); opacity: 0; transition: opacity .2s; background: rgba(0,0,0,.3); }
+.card-cover:hover .play-overlay { opacity: 1; }
 .cover-placeholder { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 48px; }
 .duration-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,.7); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
 .status-pill { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 10px; font-size: 10px; color: #fff; }
@@ -181,10 +209,14 @@ export default {
 .card-meta { font-size: 12px; color: #999; margin-bottom: 8px; }
 .dot { margin: 0 6px; }
 .card-viewpoint { font-size: 13px; color: #4f46e5; font-weight: 500; margin-bottom: 6px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card-preview { font-size: 12px; color: #888; line-height: 1.6; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; position: relative; }
-.card-preview.expanded { display: block; -webkit-line-clamp: unset; max-height: none; }
-.expand-link { color: #4f46e5; cursor: pointer; font-size: 11px; margin-left: 4px; white-space: nowrap; }
+.card-preview { font-size: 12px; color: #888; line-height: 1.6; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-preview.expanded { display: block; -webkit-line-clamp: unset; }
+.expand-link { color: #4f46e5; cursor: pointer; font-size: 11px; display: inline-block; margin-bottom: 8px; }
 .expand-link:hover { text-decoration: underline; }
+.video-modal { position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.modal-content { position: relative; width: 90%; max-width: 900px; }
+.modal-close { position: absolute; top: -40px; right: 0; color: #fff; font-size: 28px; cursor: pointer; }
+.modal-video { width: 100%; border-radius: 8px; max-height: 80vh; }
 .card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
 .tag { background: #eef2ff; color: #4f46e5; padding: 1px 8px; border-radius: 10px; font-size: 10px; }
 .card-actions { display: flex; align-items: flex-start; padding: 16px 12px 0 0; flex-shrink: 0; }

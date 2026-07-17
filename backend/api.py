@@ -407,6 +407,7 @@ _os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
 _os.makedirs(_os.path.join(DATA_DIR, "videos"), exist_ok=True)
 
 app.mount("/screenshots", StaticFiles(directory=_os.path.abspath(SCREENSHOTS_DIR)), name="screenshots")
+app.mount("/videos", StaticFiles(directory=_os.path.abspath(_os.path.join(_os.path.dirname(SCREENSHOTS_DIR), "videos"))), name="videos")
 
 _frontend_dist = _os.path.join(BASE_DIR, "frontend", "dist")
 if _os.path.isdir(_frontend_dist):
