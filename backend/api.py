@@ -62,6 +62,12 @@ def list_videos(
     total = q.count()
     items = q.offset((page - 1) * page_size).limit(page_size).all()
 
+    result_map = {}
+    if items:
+        ids = [v.id for v in items]
+        for r in db.query(VideoResult).filter(VideoResult.video_id.in_(ids)).all():
+            result_map[r.video_id] = r
+
     return {
         "total": total,
         "page": page,
@@ -79,6 +85,10 @@ def list_videos(
                 "share_count": v.share_count,
                 "fetch_status": v.fetch_status,
                 "created_at": v.created_at.isoformat() if v.created_at else None,
+                "subtitle_preview": (result_map[v.id].organized_subtitle or result_map[v.id].full_subtitle or "")[:80] if v.id in result_map else "",
+                "stock_summary": result_map[v.id].stock_summary if v.id in result_map else "",
+                "stock_keywords": result_map[v.id].stock_keywords if v.id in result_map else "",
+                "stock_sentiment": result_map[v.id].stock_sentiment if v.id in result_map else "",
             }
             for v in items
         ],
@@ -251,6 +261,64 @@ def process_single(video_id: int):
     t = threading.Thread(target=_run, daemon=True)
     t.start()
     return {"ok": True, "msg": f"视频 {video_id} 处理任务已启动"}
+
+
+@app.post("/api/videos/{video_id}/ocr")
+def ocr_single(video_id: int):
+    import threading
+    from backend.database import SessionLocal
+    from backend.models import Video
+    from backend.ocr import process_subtitles
+
+    def _run():
+        db = SessionLocal()
+        v = db.get(Video, video_id)
+        if v:
+            process_subtitles(video_id)
+            v.fetch_status = "done"
+            db.commit()
+        db.close()
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return {"ok": True, "msg": f"视频 {video_id} OCR 已启动"}
+
+
+@app.post("/api/process/pending")
+def process_pending():
+    _start_process_background()
+    return {"ok": True, "msg": "批量处理已启动"}
+
+
+@app.post("/api/ocr/pending")
+def ocr_pending():
+    import threading
+    from backend.database import SessionLocal
+    from backend.models import Video
+    from backend.ocr import process_subtitles
+
+    def _run():
+        db = SessionLocal()
+        pending = db.query(Video.id).filter(Video.fetch_status == "screenshotted").all()
+        db.close()
+        ids = [r[0] for r in pending]
+        logger.info(f"[批量OCR] 发现 {len(ids)} 个待处理视频")
+        for vid in ids:
+            try:
+                process_subtitles(vid)
+                db = SessionLocal()
+                v = db.get(Video, vid)
+                if v:
+                    v.fetch_status = "done"
+                    db.commit()
+                db.close()
+            except Exception as e:
+                logger.error(f"[批量OCR] vid={vid} 失败: {e}")
+        logger.info("[批量OCR] 全部完成")
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return {"ok": True, "msg": "批量OCR已启动"}
 
 
 @app.get("/api/logs")

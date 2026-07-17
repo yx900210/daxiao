@@ -14,7 +14,7 @@ DB_PATH = os.path.join(DATA_DIR, "daxiao.db")
 VIDEOS_DIR = os.path.join(DATA_DIR, "videos")
 SCREENSHOTS_DIR = os.path.join(DATA_DIR, "screenshots")
 
-SCREENSHOT_INTERVAL = float(os.getenv("SCREENSHOT_INTERVAL", "2"))
+SCREENSHOT_INTERVAL = float(os.getenv("SCREENSHOT_INTERVAL", "1"))
 BONSAI_FRAME_SECOND = float(os.getenv("BONSAI_FRAME_SECOND", "10"))
 SUBTITLE_CROP_RATIO = (0.0, 0.70, 1.0, 1.0)
 BONSAI_CROP_RATIO = (0.75, 0.0, 1.0, 1.0)
