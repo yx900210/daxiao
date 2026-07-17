@@ -86,6 +86,7 @@ def list_videos(
                 "fetch_status": v.fetch_status,
                 "created_at": v.created_at.isoformat() if v.created_at else None,
                 "subtitle_preview": (result_map[v.id].organized_subtitle or result_map[v.id].full_subtitle or "")[:80] if v.id in result_map else "",
+                "subtitle_preview_full": (result_map[v.id].organized_subtitle or result_map[v.id].full_subtitle or "")[:500] if v.id in result_map else "",
                 "stock_summary": result_map[v.id].stock_summary if v.id in result_map else "",
                 "stock_keywords": result_map[v.id].stock_keywords if v.id in result_map else "",
                 "stock_sentiment": result_map[v.id].stock_sentiment if v.id in result_map else "",

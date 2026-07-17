@@ -59,7 +59,12 @@
             <span>❤️ {{ fmtCount(v.like_count) }}</span>
           </div>
           <p class="card-viewpoint" v-if="v.stock_summary">💡 {{ firstLine(v.stock_summary) }}</p>
-          <p class="card-preview" v-if="v.subtitle_preview">{{ v.subtitle_preview }}</p>
+          <p class="card-preview" v-if="v.subtitle_preview" :class="{ expanded: v._expanded }">
+            {{ v._expanded ? (v.subtitle_preview_full || v.subtitle_preview) : v.subtitle_preview }}
+            <span class="expand-link" @click.stop="toggleExpand(v)" v-if="hasMore(v)">
+              {{ v._expanded ? '收起▲' : '展开▼' }}
+            </span>
+          </p>
           <div class="card-tags" v-if="parsedKeywords(v).length">
             <span class="tag" v-for="k in parsedKeywords(v).slice(0,4)" :key="k">{{ k }}</span>
           </div>
@@ -130,6 +135,8 @@ export default {
       this.fetchStats(); this.fetchVideos()
     },
     goDetail(id) { this.$router.push(`/video/${id}`) },
+    hasMore(v) { return (v.subtitle_preview_full || v.subtitle_preview || '').length > 80 },
+    toggleExpand(v) { this.$set(v, '_expanded', !v._expanded) },
     firstLine(s) { if (!s) return ''; const idx = s.indexOf('\n'); return idx > 0 ? s.substring(0, idx) : s.substring(0, 80) },
     formatTime(t) { return t ? new Date(t).toLocaleString('zh-CN') : '-' },
     fmtDuration(s) { const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s % 60)).padStart(2,'0')}` },
@@ -162,8 +169,8 @@ export default {
 .card-list { display: flex; flex-direction: column; gap: 16px; }
 .video-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); cursor: pointer; transition: all .2s; display: flex; overflow: hidden; }
 .video-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,.1); }
-.card-cover { width: 280px; flex-shrink: 0; position: relative; background: #e8eaed; min-height: 180px; }
-.cover-img { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; }
+.card-cover { width: 280px; flex-shrink: 0; position: relative; background: #1a1a2e; min-height: 210px; }
+.cover-img { width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; background: #000; }
 .cover-placeholder { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 48px; }
 .duration-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,.7); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
 .status-pill { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 10px; font-size: 10px; color: #fff; }
@@ -174,7 +181,10 @@ export default {
 .card-meta { font-size: 12px; color: #999; margin-bottom: 8px; }
 .dot { margin: 0 6px; }
 .card-viewpoint { font-size: 13px; color: #4f46e5; font-weight: 500; margin-bottom: 6px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card-preview { font-size: 12px; color: #888; line-height: 1.6; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-preview { font-size: 12px; color: #888; line-height: 1.6; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; position: relative; }
+.card-preview.expanded { display: block; -webkit-line-clamp: unset; max-height: none; }
+.expand-link { color: #4f46e5; cursor: pointer; font-size: 11px; margin-left: 4px; white-space: nowrap; }
+.expand-link:hover { text-decoration: underline; }
 .card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
 .tag { background: #eef2ff; color: #4f46e5; padding: 1px 8px; border-radius: 10px; font-size: 10px; }
 .card-actions { display: flex; align-items: flex-start; padding: 16px 12px 0 0; flex-shrink: 0; }
