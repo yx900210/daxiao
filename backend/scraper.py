@@ -185,27 +185,32 @@ async def scrape_profile() -> tuple[int, int]:
 
     video_list = list(collected.values())
     total = len(video_list)
-    new = _db_add_videos(video_list)
-    logger.info(f"共计 {total} 个视频, 新增 {new} 个")
+    new, updated = _db_add_videos(video_list)
+    logger.info(f"共计 {total} 个视频, 新增 {new} 个, 刷新CDN {updated} 个")
     return total, new
 
 
-def _db_add_videos(video_list: list[dict]) -> int:
+def _db_add_videos(video_list: list[dict]) -> tuple[int, int]:
     new_count = 0
+    updated_count = 0
     db = SessionLocal()
     try:
         for v in video_list:
             douyin_id = v.get("douyin_video_id", "").strip()
+            video_url = v.get("video_url", "")
             if not douyin_id:
                 continue
             exists = db.query(Video).filter(Video.douyin_video_id == douyin_id).first()
             if exists:
+                if exists.fetch_status != "done" and video_url:
+                    exists.video_url = video_url
+                    updated_count += 1
                 continue
             db.add(Video(
                 douyin_video_id=douyin_id,
                 title=v.get("title", ""),
                 cover_url=v.get("cover_url", ""),
-                video_url=v.get("video_url", ""),
+                video_url=video_url,
                 publish_time=v.get("publish_time"),
                 duration=v.get("duration", 0),
                 like_count=v.get("like_count", 0),
@@ -220,4 +225,4 @@ def _db_add_videos(video_list: list[dict]) -> int:
         raise
     finally:
         db.close()
-    return new_count
+    return new_count, updated_count
