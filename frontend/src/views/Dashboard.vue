@@ -79,9 +79,9 @@
             <img :src="'screenshots/' + bgRel(v.bonsai_image)" />
           </div>
           <div class="bonsai-info">
-            <span class="bonsai-label">🪴 盆景</span>
+            <span class="bonsai-label">🪴</span>
             <span class="bonsai-elements" v-if="v.bonsai_species">{{ v.bonsai_species }}</span>
-            <span class="bonsai-meaning" v-if="v.bonsai_meaning">{{ v.bonsai_meaning.substring(0, 80) }}{{ v.bonsai_meaning.length > 80 ? '...' : '' }}</span>
+            <span class="bonsai-meaning" v-if="v.bonsai_meaning">{{ v.bonsai_meaning.substring(0, 60) }}{{ v.bonsai_meaning.length > 60 ? '...' : '' }}</span>
           </div>
         </div>
       </div>
@@ -235,14 +235,14 @@ export default {
 .act-btn { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border: none; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 15px; transition: all .15s; display: flex; align-items: center; justify-content: center; }
 .act-btn:hover { transform: scale(1.1); }
 .act-btn:disabled { opacity: .4; transform: none; }
-.card-bonsai { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: #f8f9fc; border-top: 1px solid #eee; cursor: pointer; transition: background .15s; }
-.card-bonsai:hover { background: #eef0f8; }
-.bonsai-thumb { width: 56px; height: 56px; border-radius: 6px; overflow: hidden; flex-shrink: 0; background: #ddd; }
+.card-bonsai { width: 160px; flex-shrink: 0; padding: 14px 12px; border-left: 1px solid #eee; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; transition: background .15s; }
+.card-bonsai:hover { background: #f8f9fc; }
+.bonsai-thumb { width: 88px; height: 66px; border-radius: 6px; overflow: hidden; flex-shrink: 0; background: #e8eaed; }
 .bonsai-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.bonsai-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.bonsai-label { font-size: 11px; color: #888; }
-.bonsai-elements { font-size: 13px; color: #333; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bonsai-meaning { font-size: 11px; color: #666; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bonsai-info { text-align: center; min-width: 0; }
+.bonsai-label { font-size: 18px; display: block; }
+.bonsai-elements { font-size: 12px; color: #333; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
+.bonsai-meaning { font-size: 10px; color: #888; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; line-height: 1.4; }
 .pagination { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 24px; }
 .pagination button { background: #fff; border: 1px solid #ddd; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; }
 .pagination button:disabled { opacity: .4; }

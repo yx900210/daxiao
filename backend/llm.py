@@ -162,6 +162,16 @@ def _call_llm_vision(b64: str, prompt: str) -> str | None:
         return None
 
 
+def _clean_bonsai_elements(text: str) -> str:
+    import re as _re
+    text = _re.sub(r"<think>.*?</think>", "", text, flags=_re.DOTALL)
+    text = _re.sub(r"<thinking>.*?</thinking>", "", text, flags=_re.DOTALL)
+    text = _re.sub(r"[a-zA-Z]+", "", text)
+    text = _re.sub(r"\s+", " ", text).strip()
+    text = _re.sub(r"[,，、\s]+", "、", text)
+    return text.strip("、")
+
+
 def analyze_bonsai(image_path: str) -> tuple[str | None, str | None]:
     logger.info(f"Bonsai 分析: {image_path}")
 
@@ -178,6 +188,7 @@ def analyze_bonsai(image_path: str) -> tuple[str | None, str | None]:
     if not elements:
         logger.error("Bonsai Stage 1 失败")
         return None, None
+    elements = _clean_bonsai_elements(elements)
     logger.info(f"Bonsai 元素: {elements[:150]}...")
 
     meaning_prompt = _get_prompt("prompt_bonsai_meaning", BONSAI_MEANING_DEFAULT).format(elements=elements)
