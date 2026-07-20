@@ -171,7 +171,6 @@ def get_video(video_id: int, db: Session = Depends(get_db)):
             "screenshot_path": bonsai.screenshot_path if bonsai else None,
             "record_time": bonsai.record_time if bonsai else None,
             "species": bonsai.species if bonsai else None,
-            "description": bonsai.description if bonsai else None,
             "meaning": bonsai.meaning if bonsai else None,
         } if bonsai else None,
     }
