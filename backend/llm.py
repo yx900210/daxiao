@@ -157,6 +157,8 @@ def _call_llm_vision(b64: str, prompt: str) -> str | None:
         return content.strip() if content else None
     except Exception as e:
         logger.error(f"Bonsai VL 调用失败: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            logger.error(f"VL HTTP {e.response.status_code}: {e.response.text[:500]}")
         return None
 
 
