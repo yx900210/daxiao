@@ -73,6 +73,17 @@
         <div class="card-actions" @click.stop>
           <button class="act-btn" @click="processOne(v.id)" :disabled="v.fetch_status === 'processing'" title="处理">▶</button>
         </div>
+
+        <div class="card-bonsai" v-if="v.bonsai_species || v.bonsai_image" @click.stop="goDetail(v.id)">
+          <div class="bonsai-thumb" v-if="v.bonsai_image">
+            <img :src="'screenshots/' + bgRel(v.bonsai_image)" />
+          </div>
+          <div class="bonsai-info">
+            <span class="bonsai-label">🪴 盆景</span>
+            <span class="bonsai-elements" v-if="v.bonsai_species">{{ v.bonsai_species }}</span>
+            <span class="bonsai-meaning" v-if="v.bonsai_meaning">{{ v.bonsai_meaning.substring(0, 80) }}{{ v.bonsai_meaning.length > 80 ? '...' : '' }}</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -163,6 +174,7 @@ export default {
       }
     },
     closePlayer() { this.playingVideo = '' },
+    bgRel(abs) { return abs ? abs.replace(/.*screenshots\//, '') : '' },
     firstLine(s) { if (!s) return ''; const idx = s.indexOf('\n'); return idx > 0 ? s.substring(0, idx) : s.substring(0, 80) },
     formatTime(t) { return t ? new Date(t).toLocaleString('zh-CN') : '-' },
     fmtDuration(s) { const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s % 60)).padStart(2,'0')}` },
@@ -193,7 +205,7 @@ export default {
 .filter-bar button { background: #fff; border: 1px solid #e0e0e0; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 12px; color: #666; transition: all .15s; }
 .filter-bar button.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
 .card-list { display: flex; flex-direction: column; gap: 16px; }
-.video-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); cursor: pointer; transition: all .2s; display: flex; overflow: hidden; }
+.video-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); cursor: pointer; transition: all .2s; display: flex; flex-wrap: wrap; overflow: hidden; }
 .video-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,.1); }
 .card-cover { width: 280px; flex-shrink: 0; position: relative; background: #1a1a2e; min-height: 210px; cursor: pointer; }
 .cover-img { width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; background: #000; }
@@ -223,6 +235,14 @@ export default {
 .act-btn { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border: none; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 15px; transition: all .15s; display: flex; align-items: center; justify-content: center; }
 .act-btn:hover { transform: scale(1.1); }
 .act-btn:disabled { opacity: .4; transform: none; }
+.card-bonsai { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: #f8f9fc; border-top: 1px solid #eee; cursor: pointer; transition: background .15s; }
+.card-bonsai:hover { background: #eef0f8; }
+.bonsai-thumb { width: 56px; height: 56px; border-radius: 6px; overflow: hidden; flex-shrink: 0; background: #ddd; }
+.bonsai-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.bonsai-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bonsai-label { font-size: 11px; color: #888; }
+.bonsai-elements { font-size: 13px; color: #333; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bonsai-meaning { font-size: 11px; color: #666; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .pagination { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 24px; }
 .pagination button { background: #fff; border: 1px solid #ddd; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; }
 .pagination button:disabled { opacity: .4; }

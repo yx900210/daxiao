@@ -1,7 +1,7 @@
 <template>
   <div class="app-layout">
     <aside class="sidebar">
-      <div class="logo">🌳<span class="logo-text">李大霄追踪</span></div>
+      <div class="logo">🌳<span class="logo-text">李大霄是个好人</span></div>
       <nav class="nav-links">
         <router-link to="/" class="nav-item">🏠 首页</router-link>
         <router-link to="/logs" class="nav-item">📋 日志</router-link>

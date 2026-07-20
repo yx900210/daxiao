@@ -98,10 +98,14 @@ def list_videos(
     items = q.offset((page - 1) * page_size).limit(page_size).all()
 
     result_map = {}
+    bonsai_map = {}
     if items:
         ids = [v.id for v in items]
         for r in db.query(VideoResult).filter(VideoResult.video_id.in_(ids)).all():
             result_map[r.video_id] = r
+        for b in db.query(BonsaiScreenshot).filter(BonsaiScreenshot.video_id.in_(ids)).all():
+            if b.video_id not in bonsai_map:
+                bonsai_map[b.video_id] = b
 
     return {
         "total": total,
@@ -125,6 +129,9 @@ def list_videos(
                 "stock_summary": result_map[v.id].stock_summary if v.id in result_map else "",
                 "stock_keywords": result_map[v.id].stock_keywords if v.id in result_map else "",
                 "stock_sentiment": result_map[v.id].stock_sentiment if v.id in result_map else "",
+                "bonsai_species": bonsai_map[v.id].species if v.id in bonsai_map else "",
+                "bonsai_meaning": bonsai_map[v.id].meaning if v.id in bonsai_map else "",
+                "bonsai_image": bonsai_map[v.id].screenshot_path if v.id in bonsai_map else "",
             }
             for v in items
         ],
