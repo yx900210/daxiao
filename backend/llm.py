@@ -121,16 +121,8 @@ BONSAI_MEANING_DEFAULT = """基于盆景中的以下元素：
 
 def _image_to_base64(path: str) -> str:
     import base64
-    from PIL import Image
-    img = Image.open(path)
-    w, h = img.size
-    if max(w, h) > 600:
-        ratio = 600 / max(w, h)
-        img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
-    from io import BytesIO
-    buf = BytesIO()
-    img.save(buf, format="JPEG", quality=75)
-    return base64.b64encode(buf.getvalue()).decode()
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 
 
 def _call_llm_vision(b64: str, prompt: str) -> str | None:
