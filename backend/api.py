@@ -50,6 +50,8 @@ def startup():
   "sentiment": "看多/看空/中性",
   "keywords": ["标签1", "标签2", ...]
 }}""",
+        "prompt_bonsai_elements": "请仔细观察这张盆景图片，列出盆景中所包含的所有元素。\n包括但不限于：植物种类、山石、人物摆件、建筑物、动物、水体、文字等。\n请用简洁的语言逐项列出。",
+        "prompt_bonsai_meaning": "基于盆景中的以下元素：\n{elements}\n\n请解读这盆盆景可能蕴含的寓意，结合股市投资语境进行分析。\n要求：简洁有力，100-300字。",
     }
     for k, v in defaults.items():
         if not db.query(Setting).get(k):
@@ -255,6 +257,8 @@ def reset_all():
   "sentiment": "看多/看空/中性",
   "keywords": ["标签1", "标签2", ...]
 }}""",
+        "prompt_bonsai_elements": "请仔细观察这张盆景图片，列出盆景中所包含的所有元素。\n包括但不限于：植物种类、山石、人物摆件、建筑物、动物、水体、文字等。\n请用简洁的语言逐项列出。",
+        "prompt_bonsai_meaning": "基于盆景中的以下元素：\n{elements}\n\n请解读这盆盆景可能蕴含的寓意，结合股市投资语境进行分析。\n要求：简洁有力，100-300字。",
     }
     for k, v in defaults.items():
         if not db.query(Setting).get(k):
@@ -295,6 +299,32 @@ def extract_video_viewpoints(video_id: int, db: Session = Depends(get_db)):
         "stock_keywords": result.stock_keywords,
         "stock_sentiment": result.stock_sentiment,
     }
+
+
+@app.post("/api/videos/{video_id}/bonsai")
+def analyze_video_bonsai(video_id: int, db: Session = Depends(get_db)):
+    v = db.query(Video).get(video_id)
+    if not v:
+        raise HTTPException(404, "视频不存在")
+
+    bonsai = db.query(BonsaiScreenshot).filter(
+        BonsaiScreenshot.video_id == video_id
+    ).first()
+    if not bonsai or not bonsai.screenshot_path:
+        raise HTTPException(400, "该视频没有盆景截图")
+
+    from backend.llm import analyze_bonsai
+    elements, meaning = analyze_bonsai(bonsai.screenshot_path)
+    if not elements and not meaning:
+        raise HTTPException(500, "盆景分析失败")
+
+    if elements:
+        bonsai.species = elements
+    if meaning:
+        bonsai.meaning = meaning
+    db.commit()
+
+    return {"ok": True, "species": bonsai.species, "meaning": bonsai.meaning}
 
 
 @app.post("/api/videos/{video_id}/organize")

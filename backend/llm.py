@@ -4,7 +4,7 @@ import re
 
 import httpx
 
-from backend.config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL
+from backend.config import LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, BONSAI_MODEL
 from backend.database import get_setting
 
 logger = logging.getLogger(__name__)
@@ -107,3 +107,83 @@ def extract_viewpoints(text: str) -> dict | None:
         "sentiment": parsed.get("sentiment", "中性"),
         "keywords": parsed.get("keywords", []),
     }
+
+BONSAI_ELEMENTS_DEFAULT = """请仔细观察这张盆景图片，列出盆景中所包含的所有元素。
+包括但不限于：植物种类、山石、人物摆件、建筑物、动物、水体、文字等。
+请用简洁的语言逐项列出。"""
+
+BONSAI_MEANING_DEFAULT = """基于盆景中的以下元素：
+{elements}
+
+请解读这盆盆景可能蕴含的寓意，结合股市投资语境进行分析。
+要求：简洁有力，100-300字。"""
+
+
+def _image_to_base64(path: str) -> str:
+    import base64
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+
+def _call_llm_vision(b64: str, prompt: str) -> str | None:
+    if not LLM_API_KEY:
+        logger.warning("未配置 LLM_API_KEY")
+        return None
+
+    try:
+        resp = httpx.post(
+            f"{LLM_BASE_URL}/chat/completions",
+            json={
+                "model": BONSAI_MODEL,
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+                        {"type": "text", "text": prompt},
+                    ],
+                }],
+                "temperature": 0.3,
+                "max_tokens": 1024,
+            },
+            headers={
+                "Authorization": f"Bearer {LLM_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            timeout=120,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        content = data["choices"][0]["message"].get("content") or ""
+        return content.strip() if content else None
+    except Exception as e:
+        logger.error(f"Bonsai VL 调用失败: {e}")
+        return None
+
+
+def analyze_bonsai(image_path: str) -> tuple[str | None, str | None]:
+    logger.info(f"Bonsai 分析: {image_path}")
+
+    try:
+        b64 = _image_to_base64(image_path)
+    except Exception as e:
+        logger.error(f"Bonsai 读取图片失败: {e}")
+        return None, None
+
+    from backend.config import BONSAI_MODEL
+    elements_prompt = _get_prompt("prompt_bonsai_elements", BONSAI_ELEMENTS_DEFAULT)
+    logger.info(f"Bonsai Stage 1: 识别元素 (模型={BONSAI_MODEL})...")
+    elements = _call_llm_vision(b64, elements_prompt)
+    if not elements:
+        logger.error("Bonsai Stage 1 失败")
+        return None, None
+    logger.info(f"Bonsai 元素: {elements[:150]}...")
+
+    meaning_prompt = _get_prompt("prompt_bonsai_meaning", BONSAI_MEANING_DEFAULT).format(elements=elements)
+    logger.info("Bonsai Stage 2: 解读寓意...")
+    meaning = _call_llm([{"role": "user", "content": meaning_prompt}], max_tokens=1024)
+    if not meaning:
+        logger.error("Bonsai Stage 2 失败")
+        return elements, None
+    logger.info(f"Bonsai 寓意: {meaning[:100]}...")
+
+    return elements, meaning

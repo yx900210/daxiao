@@ -55,14 +55,21 @@
     </section>
 
     <section class="section" v-if="video.bonsai">
-      <div class="section-head"><span>🪴 盆景解读</span></div>
+      <div class="section-head">
+        <span>🪴 盆景解读</span>
+        <div class="section-actions">
+          <button class="btn-sm" @click="analyzeBonsai" :disabled="bonsaiing">
+            {{ bonsaiing ? '分析中...' : '🤖 盆景分析' }}
+          </button>
+        </div>
+      </div>
       <div v-if="video.bonsai.screenshot_path">
         <img :src="'/screenshots/' + getRelativePath(video.bonsai.screenshot_path)" class="bonsai-img" />
       </div>
       <p v-if="video.bonsai.record_time">录制时间: {{ video.bonsai.record_time }}</p>
-      <p v-if="video.bonsai.species">品种: {{ video.bonsai.species }}</p>
-      <p v-if="video.bonsai.description">{{ video.bonsai.description }}</p>
-      <p v-if="video.bonsai.meaning" class="meaning">寓意: {{ video.bonsai.meaning }}</p>
+      <p v-if="video.bonsai.species"><strong>元素:</strong> {{ video.bonsai.species }}</p>
+      <p v-if="video.bonsai.meaning"><strong>寓意:</strong> {{ video.bonsai.meaning }}</p>
+      <p class="msg" v-if="bonsaiMsg">{{ bonsaiMsg }}</p>
     </section>
 
     <section class="section" v-if="video.subtitles && video.subtitles.length">
@@ -87,7 +94,7 @@
 
 <script>
 export default {
-  data() { return { video: null, organizing: false, organizeMsg: '', viewpointing: false, viewpointMsg: '' } },
+  data() {     return { video: null, organizing: false, organizeMsg: '', viewpointing: false, viewpointMsg: '', bonsaiing: false, bonsaiMsg: '' } },
   computed: {
     parsedKeywords() {
       if (!this.video?.result?.stock_keywords) return []
@@ -122,6 +129,18 @@ export default {
         this.video.result.stock_sentiment = d.stock_sentiment
       } catch(e) { this.viewpointMsg = e.message }
       this.viewpointing = false
+    },
+    async analyzeBonsai() {
+      this.bonsaiing = true; this.bonsaiMsg = ''
+      try {
+        const r = await fetch(`/api/videos/${this.$route.params.id}/bonsai`, { method: 'POST' })
+        if (!r.ok) { const d = await r.json(); throw new Error(d.detail || '失败') }
+        const d = await r.json()
+        this.video.bonsai.species = d.species
+        this.video.bonsai.meaning = d.meaning
+        this.bonsaiMsg = '分析完成'
+      } catch(e) { this.bonsaiMsg = e.message }
+      this.bonsaiing = false
     },
     formatTime(t) { return t ? new Date(t).toLocaleString('zh-CN') : '-' },
     fmtDuration(s) { const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s % 60)).padStart(2,'0')}` },

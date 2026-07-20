@@ -70,7 +70,6 @@ class BonsaiScreenshot(Base):
     screenshot_path = Column(Text)
     record_time = Column(Text)
     species = Column(Text)
-    description = Column(Text)
     meaning = Column(Text)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

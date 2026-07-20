@@ -198,6 +198,30 @@ def _run_ai_steps(video_id: int):
                 logger.info(f"[vid={video_id}] 观点提炼完成 ({len(vp.get('points',[]))}条)")
         db.close()
 
+    # Bonsai 分析
+    try:
+        from backend.llm import analyze_bonsai
+    except ImportError:
+        return
+
+    db = SessionLocal()
+    bonsai = db.query(BonsaiScreenshot).filter(
+        BonsaiScreenshot.video_id == video_id
+    ).first()
+    if bonsai and bonsai.screenshot_path and not bonsai.meaning:
+        logger.info(f"[vid={video_id}] 盆景分析...")
+        try:
+            elements, meaning = analyze_bonsai(bonsai.screenshot_path)
+            if elements:
+                bonsai.species = elements
+            if meaning:
+                bonsai.meaning = meaning
+            db.commit()
+            logger.info(f"[vid={video_id}] 盆景分析完成")
+        except Exception as e:
+            logger.warning(f"[vid={video_id}] 盆景分析失败: {e}")
+    db.close()
+
 
 def process_video(video_id: int) -> bool:
     t_start = datetime.utcnow()
