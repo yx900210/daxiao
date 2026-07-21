@@ -52,6 +52,7 @@ def startup():
 }}""",
         "prompt_bonsai_elements": "请仔细观察这张盆景图片，列出盆景中所包含的所有元素。\n包括但不限于：植物种类、山石、人物摆件、建筑物、动物、水体、文字等。\n请用简洁的语言逐项列出。",
         "prompt_bonsai_meaning": "基于盆景中的以下元素：\n{elements}\n\n请解读这盆盆景可能蕴含的寓意，结合股市投资语境进行分析。\n要求：简洁有力，100-300字。",
+        "cron_schedule": "0 9 * * *",
     }
     for k, v in defaults.items():
         if not db.query(Setting).get(k):
@@ -265,6 +266,7 @@ def reset_all():
 }}""",
         "prompt_bonsai_elements": "请仔细观察这张盆景图片，列出盆景中所包含的所有元素。\n包括但不限于：植物种类、山石、人物摆件、建筑物、动物、水体、文字等。\n请用简洁的语言逐项列出。",
         "prompt_bonsai_meaning": "基于盆景中的以下元素：\n{elements}\n\n请解读这盆盆景可能蕴含的寓意，结合股市投资语境进行分析。\n要求：简洁有力，100-300字。",
+        "cron_schedule": "0 9 * * *",
     }
     for k, v in defaults.items():
         if not db.query(Setting).get(k):
@@ -272,7 +274,7 @@ def reset_all():
     db.commit()
     db.close()
 
-    return {"ok": True, "msg": "所有数据已清空，数据库已重建"}
+    return {"ok": True, "msg": "所有数据已清空，数据库已重建"} 
 
 
 @app.post("/api/videos/{video_id}/viewpoints")

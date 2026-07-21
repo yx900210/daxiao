@@ -57,7 +57,9 @@ def start_scheduler():
     if scheduler.running:
         return
 
-    cron_parts = CRON_SCHEDULE.strip().split()
+    from backend.database import get_setting
+    cron_expr = get_setting("cron_schedule", "0 9 * * *")
+    cron_parts = cron_expr.strip().split()
     if len(cron_parts) == 5:
         trigger = CronTrigger(
             minute=cron_parts[0],
@@ -72,7 +74,7 @@ def start_scheduler():
 
     scheduler.add_job(_run_scrape, trigger=trigger, id="daily_scrape", name="每日抓取")
     scheduler.start()
-    logger.info(f"定时任务已启动: {CRON_SCHEDULE}")
+    logger.info(f"定时任务已启动: {cron_expr}")
 
 
 def stop_scheduler():

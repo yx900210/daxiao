@@ -33,6 +33,14 @@
       <span class="msg" v-if="bmMsg">{{ bmMsg }}</span>
     </div>
 
+    <div class="setting-group">
+      <label>定时抓取频率</label>
+      <p class="desc">Cron 表达式：分 时 日 月 周。默认每天早 9 点</p>
+      <input v-model="cronSchedule" type="text" placeholder="0 9 * * *" />
+      <button class="btn-save" @click="savePrompt('cron_schedule', cronSchedule)" :disabled="savingCron">保存</button>
+      <span class="msg" v-if="cronMsg">{{ cronMsg }}</span>
+    </div>
+
     <div class="setting-group reset-group">
       <label style="color:#ef4444">清空所有数据</label>
       <p style="font-size:13px;color:#888;margin-bottom:8px">删除所有视频、截图、抓取日志。此操作不可撤销。</p>
@@ -54,10 +62,12 @@ export default {
       promptViewpoint: '',
       promptBonsaiElements: '',
       promptBonsaiMeaning: '',
+      cronSchedule: '',
       savingOrg: false, orgMsg: '',
       savingVp: false, vpMsg: '',
       savingBe: false, beMsg: '',
       savingBm: false, bmMsg: '',
+      savingCron: false, cronMsg: '',
       resetting: false, resetMsg: '',
     }
   },
@@ -68,13 +78,15 @@ export default {
     this.promptViewpoint = data.prompt_viewpoint || ''
     this.promptBonsaiElements = data.prompt_bonsai_elements || ''
     this.promptBonsaiMeaning = data.prompt_bonsai_meaning || ''
+    this.cronSchedule = data.cron_schedule || '0 9 * * *'
   },
   methods: {
     async savePrompt(key, value) {
       if (key === 'prompt_organize') { this.savingOrg = true; this.orgMsg = '' }
       else if (key === 'prompt_viewpoint') { this.savingVp = true; this.vpMsg = '' }
       else if (key === 'prompt_bonsai_elements') { this.savingBe = true; this.beMsg = '' }
-      else { this.savingBm = true; this.bmMsg = '' }
+      else if (key === 'prompt_bonsai_meaning') { this.savingBm = true; this.bmMsg = '' }
+      else { this.savingCron = true; this.cronMsg = '' }
       await fetch(`/api/settings/${key}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value }),
@@ -82,7 +94,8 @@ export default {
       if (key === 'prompt_organize') { this.orgMsg = '已保存'; this.savingOrg = false }
       else if (key === 'prompt_viewpoint') { this.vpMsg = '已保存'; this.savingVp = false }
       else if (key === 'prompt_bonsai_elements') { this.beMsg = '已保存'; this.savingBe = false }
-      else { this.bmMsg = '已保存'; this.savingBm = false }
+      else if (key === 'prompt_bonsai_meaning') { this.bmMsg = '已保存'; this.savingBm = false }
+      else { this.cronMsg = '已保存（下次启动生效）'; this.savingCron = false }
     },
     async resetAll() {
       if (!confirm('确定要清空所有数据吗？此操作不可撤销！')) return
