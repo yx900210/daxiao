@@ -177,6 +177,41 @@ async def scrape_profile() -> tuple[int, int]:
 
             await _fetch_detail_urls(page, collected)
 
+            # 补全 DB 中非 done 但缺 video_url 的老视频
+            db = SessionLocal()
+            stale = db.query(Video).filter(
+                Video.fetch_status != "done",
+                (Video.video_url.is_(None)) | (Video.video_url == ""),
+            ).all()
+            db.close()
+            stale = [v for v in stale if v.douyin_video_id not in collected]
+            if stale:
+                logger.info(f"DB中 {len(stale)} 个老视频需要补全地址...")
+                for v in stale:
+                    try:
+                        body = await page.evaluate("""
+                            async (id) => {
+                                const url = 'https://www.douyin.com/aweme/v1/web/aweme/detail/?' +
+                                    new URLSearchParams({ aweme_id: id, aid: '6383' }).toString();
+                                const ctrl = new AbortController();
+                                setTimeout(() => ctrl.abort(), 10000);
+                                const resp = await fetch(url, { credentials: 'include', signal: ctrl.signal });
+                                return resp.ok ? await resp.text() : '';
+                            }
+                        """, v.douyin_video_id)
+                        if body:
+                            data = json.loads(body)
+                            vobj = data.get("aweme_detail", {}).get("video", {})
+                            url = _extract_play_url(vobj)
+                            if url:
+                                db2 = SessionLocal()
+                                db2.query(Video).filter(Video.id == v.id).update({"video_url": url})
+                                db2.commit()
+                                db2.close()
+                                logger.info(f"[{v.douyin_video_id}] ✅ 补全: {url[:100]}...")
+                    except Exception as e:
+                        logger.warning(f"[{v.douyin_video_id}] 补全失败: {e}")
+
         except Exception as e:
             logger.error(f"抓取失败: {e}")
             raise
