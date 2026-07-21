@@ -177,11 +177,10 @@ async def scrape_profile() -> tuple[int, int]:
 
             await _fetch_detail_urls(page, collected)
 
-            # 补全 DB 中非 done 但缺 video_url 的老视频
+            # 补全 DB 中非 done 的老视频地址（不限 video_url 状态）
             db = SessionLocal()
             stale = db.query(Video).filter(
                 Video.fetch_status != "done",
-                (Video.video_url.is_(None)) | (Video.video_url == ""),
             ).all()
             db.close()
             stale = [v for v in stale if v.douyin_video_id not in collected]
