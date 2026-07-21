@@ -248,9 +248,9 @@ export default {
 .act-btn { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border: none; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 15px; transition: all .15s; display: flex; align-items: center; justify-content: center; }
 .act-btn:hover { transform: scale(1.1); }
 .act-btn:disabled { opacity: .4; transform: none; }
-.card-bonsai { width: 220px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 16px; cursor: pointer; transition: background .15s; border-left: 1px solid #eee; }
+.card-bonsai { width: 240px; flex-shrink: 0; display: flex; align-items: stretch; padding: 12px; cursor: pointer; transition: background .15s; border-left: 1px solid #eee; }
 .card-bonsai:hover { background: #f8f9fc; }
-.bonsai-thumb { width: 100%; height: 200px; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.bonsai-thumb { flex: 1; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
 .bonsai-thumb img { width: 100%; height: 100%; object-fit: contain; }
 .card-bonsai-text { margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0; }
 .card-bonsai-text .bonsai-elements { font-size: 12px; color: #333; line-height: 1.6; margin-bottom: 3px; }
@@ -266,7 +266,7 @@ export default {
   .video-card { flex-direction: column; }
   .card-cover { width: 100%; height: 200px; min-height: 180px; }
   .card-bonsai { width: 100%; border-left: none; border-top: 1px solid #eee; }
-  .card-bonsai .bonsai-thumb { height: 160px; }
+  .card-bonsai .bonsai-thumb { height: 200px; flex: none; }
   .card-actions { position: absolute; top: 140px; right: 12px; padding: 0; }
 }
 </style>
