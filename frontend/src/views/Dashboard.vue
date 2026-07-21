@@ -215,8 +215,8 @@ export default {
 .card-list { display: flex; flex-direction: column; gap: 16px; }
 .video-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); cursor: pointer; transition: all .2s; display: flex; flex-wrap: wrap; overflow: hidden; }
 .video-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,.1); }
-.card-cover { width: 280px; flex-shrink: 0; position: relative; background: #1a1a2e; min-height: 210px; cursor: pointer; }
-.cover-img { width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; background: #000; }
+.card-cover { width: 280px; flex-shrink: 0; position: relative; background: #1a1a2e; min-height: 210px; cursor: pointer; align-self: stretch; }
+.cover-img { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; }
 .play-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 40px; color: rgba(255,255,255,.8); opacity: 0; transition: opacity .2s; background: rgba(0,0,0,.3); }
 .card-cover:hover .play-overlay { opacity: 1; }
 .cover-placeholder { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 48px; }
