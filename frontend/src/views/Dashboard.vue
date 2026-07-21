@@ -65,6 +65,14 @@
           <p class="card-preview" v-if="v.subtitle_preview" :class="{ expanded: isExpanded(v.id) }">
             <span class="sect-tag tg-subtitle">字幕</span>{{ isExpanded(v.id) ? (v.subtitle_preview_full || v.subtitle_preview) : v.subtitle_preview }}<span class="expand-link" @click.stop="toggleExpand(v)" v-if="hasMore(v)">{{ isExpanded(v.id) ? '收起▲' : '...展开▼' }}</span>
           </p>
+          <div class="card-bonsai-text" v-if="v.bonsai_species || v.bonsai_meaning">
+            <p class="bonsai-elements" v-if="v.bonsai_species">
+              <span class="sect-tag tg-bonsai">盆景</span>{{ v.bonsai_species }}
+            </p>
+            <p class="bonsai-meaning" v-if="v.bonsai_meaning">
+              <span class="sect-tag tg-meaning">寓意</span>{{ v.bonsai_meaning.substring(0, 80) }}{{ v.bonsai_meaning.length > 80 ? '...' : '' }}
+            </p>
+          </div>
           <div class="card-tags" v-if="parsedKeywords(v).length">
             <span class="tag" v-for="k in parsedKeywords(v).slice(0,4)" :key="k">{{ k }}</span>
           </div>
@@ -73,17 +81,9 @@
           <button class="act-btn" @click="processOne(v.id)" :disabled="v.fetch_status === 'processing'" title="处理">▶</button>
         </div>
 
-        <div class="card-bonsai" v-if="v.bonsai_species || v.bonsai_image" @click.stop="goDetail(v.id)">
-          <div class="bonsai-thumb" v-if="v.bonsai_image">
+        <div class="card-bonsai" v-if="v.bonsai_image" @click.stop="previewBonsai(v)">
+          <div class="bonsai-thumb">
             <img :src="'screenshots/' + bgRel(v.bonsai_image)" />
-          </div>
-          <div class="bonsai-info">
-            <span class="bonsai-elements" v-if="v.bonsai_species">
-              <span class="sect-tag tg-bonsai">盆景</span>{{ v.bonsai_species }}
-            </span>
-            <span class="bonsai-meaning" v-if="v.bonsai_meaning">
-              <span class="sect-tag tg-meaning">寓意</span>{{ v.bonsai_meaning.substring(0, 60) }}{{ v.bonsai_meaning.length > 60 ? '...' : '' }}
-            </span>
           </div>
         </div>
       </div>
@@ -94,6 +94,10 @@
         <span class="modal-close" @click="closePlayer">✕</span>
         <video :src="playingVideo" controls autoplay class="modal-video"></video>
       </div>
+    </div>
+
+    <div class="img-modal" v-if="previewImg" @click="previewImg = ''">
+      <img :src="previewImg" @click.stop />
     </div>
 
     <div class="pagination" v-if="total > pageSize">
@@ -119,6 +123,7 @@ export default {
       scraping: false, scrapeMsg: '', processing: false, processMsg: '',
       expandedIds: new Set(),
       playingVideo: '',
+      previewImg: '',
     }
   },
   watch: {
@@ -176,6 +181,7 @@ export default {
       }
     },
     closePlayer() { this.playingVideo = '' },
+    previewBonsai(v) { if (v.bonsai_image) this.previewImg = 'screenshots/' + this.bgRel(v.bonsai_image) },
     bgRel(abs) { return abs ? abs.replace(/.*screenshots\//, '') : '' },
     firstLine(s) { if (!s) return ''; const idx = s.indexOf('\n'); return idx > 0 ? s.substring(0, idx) : s.substring(0, 80) },
     formatTime(t) { return t ? new Date(t).toLocaleString('zh-CN') : '-' },
@@ -242,13 +248,15 @@ export default {
 .act-btn { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border: none; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 15px; transition: all .15s; display: flex; align-items: center; justify-content: center; }
 .act-btn:hover { transform: scale(1.1); }
 .act-btn:disabled { opacity: .4; transform: none; }
-.card-bonsai { width: 180px; flex-shrink: 0; padding: 14px 12px; border-left: 1px solid #eee; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; transition: background .15s; justify-content: center; }
+.card-bonsai { width: 220px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 16px; cursor: pointer; transition: background .15s; border-left: 1px solid #eee; }
 .card-bonsai:hover { background: #f8f9fc; }
-.bonsai-thumb { width: 130px; height: 100px; border-radius: 6px; overflow: hidden; flex-shrink: 0; background: #111; display: flex; align-items: center; justify-content: center; }
+.bonsai-thumb { width: 100%; height: 160px; border-radius: 8px; overflow: hidden; background: #111; display: flex; align-items: center; justify-content: center; }
 .bonsai-thumb img { width: 100%; height: 100%; object-fit: contain; }
-.bonsai-info { text-align: center; min-width: 0; }
-.bonsai-elements { font-size: 11px; color: #333; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
-.bonsai-meaning { font-size: 10px; color: #888; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 4px; line-height: 1.4; }
+.card-bonsai-text { margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0; }
+.card-bonsai-text .bonsai-elements { font-size: 12px; color: #333; line-height: 1.6; margin-bottom: 3px; }
+.card-bonsai-text .bonsai-meaning { font-size: 11px; color: #888; line-height: 1.5; margin: 0; }
+.img-modal { position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 1001; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.img-modal img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 8px; }
 .pagination { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 24px; }
 .pagination button { background: #fff; border: 1px solid #ddd; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; }
 .pagination button:disabled { opacity: .4; }
@@ -257,9 +265,8 @@ export default {
   .stats-row { grid-template-columns: 1fr; }
   .video-card { flex-direction: column; }
   .card-cover { width: 100%; height: 200px; min-height: 180px; }
-  .card-bonsai { width: 100%; border-left: none; border-top: 1px solid #eee; flex-direction: row; padding: 12px 16px; gap: 12px; }
-  .card-bonsai .bonsai-thumb { width: 70px; height: 55px; }
-  .card-bonsai .bonsai-info { text-align: left; }
+  .card-bonsai { width: 100%; border-left: none; border-top: 1px solid #eee; }
+  .card-bonsai .bonsai-thumb { height: 120px; }
   .card-actions { position: absolute; top: 140px; right: 12px; padding: 0; }
 }
 </style>
