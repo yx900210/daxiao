@@ -59,13 +59,12 @@
             <span class="dot" v-if="v.publish_time">·</span>
             <span>❤️ {{ fmtCount(v.like_count) }}</span>
           </div>
-          <p class="card-viewpoint" v-if="v.stock_summary">💡 {{ viewpointPreview(v.stock_summary) }}</p>
-          <p class="card-preview" v-if="v.subtitle_preview" :class="{ expanded: isExpanded(v.id) }">
-            {{ isExpanded(v.id) ? (v.subtitle_preview_full || v.subtitle_preview) : v.subtitle_preview }}
+          <p class="card-viewpoint" v-if="v.stock_summary">
+            <span class="sect-tag tg-viewpoint">观点</span>{{ viewpointPreview(v.stock_summary) }}
           </p>
-          <span class="expand-link" @click.stop="toggleExpand(v)" v-if="hasMore(v)">
-            {{ isExpanded(v.id) ? '收起▲' : '展开▼' }}
-          </span>
+          <p class="card-preview" v-if="v.subtitle_preview" :class="{ expanded: isExpanded(v.id) }">
+            <span class="sect-tag tg-subtitle">字幕</span>{{ isExpanded(v.id) ? (v.subtitle_preview_full || v.subtitle_preview) : v.subtitle_preview }}<span class="expand-link" @click.stop="toggleExpand(v)" v-if="hasMore(v)">{{ isExpanded(v.id) ? '收起▲' : '...展开▼' }}</span>
+          </p>
           <div class="card-tags" v-if="parsedKeywords(v).length">
             <span class="tag" v-for="k in parsedKeywords(v).slice(0,4)" :key="k">{{ k }}</span>
           </div>
@@ -79,9 +78,12 @@
             <img :src="'screenshots/' + bgRel(v.bonsai_image)" />
           </div>
           <div class="bonsai-info">
-            <span class="bonsai-label">🪴</span>
-            <span class="bonsai-elements" v-if="v.bonsai_species">{{ v.bonsai_species }}</span>
-            <span class="bonsai-meaning" v-if="v.bonsai_meaning">{{ v.bonsai_meaning.substring(0, 60) }}{{ v.bonsai_meaning.length > 60 ? '...' : '' }}</span>
+            <span class="bonsai-elements" v-if="v.bonsai_species">
+              <span class="sect-tag tg-bonsai">盆景</span>{{ v.bonsai_species }}
+            </span>
+            <span class="bonsai-meaning" v-if="v.bonsai_meaning">
+              <span class="sect-tag tg-meaning">寓意</span>{{ v.bonsai_meaning.substring(0, 60) }}{{ v.bonsai_meaning.length > 60 ? '...' : '' }}
+            </span>
           </div>
         </div>
       </div>
@@ -221,10 +223,15 @@ export default {
 .card-meta { font-size: 12px; color: #999; margin-bottom: 8px; }
 .dot { margin: 0 6px; }
 .card-viewpoint { font-size: 13px; color: #4f46e5; font-weight: 500; margin-bottom: 6px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card-preview { font-size: 12px; color: #888; line-height: 1.6; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-preview { font-size: 12px; color: #777; line-height: 1.6; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-preview.expanded { display: block; -webkit-line-clamp: unset; }
-.expand-link { color: #4f46e5; cursor: pointer; font-size: 11px; display: inline-block; margin-bottom: 8px; }
+.expand-link { color: #4f46e5; cursor: pointer; font-size: 11px; margin-left: 2px; }
 .expand-link:hover { text-decoration: underline; }
+.sect-tag { display: inline-block; padding: 0 5px; border-radius: 3px; font-size: 10px; font-weight: 600; margin-right: 5px; vertical-align: 1px; letter-spacing: 0.5px; }
+.tg-viewpoint { background: #eef2ff; color: #4f46e5; }
+.tg-subtitle  { background: #f3f4f6; color: #6b7280; }
+.tg-bonsai    { background: #ecfdf5; color: #059669; }
+.tg-meaning   { background: #fffbeb; color: #d97706; }
 .video-modal { position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 1000; display: flex; align-items: center; justify-content: center; }
 .modal-content { position: relative; width: 90%; max-width: 900px; }
 .modal-close { position: absolute; top: -40px; right: 0; color: #fff; font-size: 28px; cursor: pointer; }
@@ -235,15 +242,24 @@ export default {
 .act-btn { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border: none; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 15px; transition: all .15s; display: flex; align-items: center; justify-content: center; }
 .act-btn:hover { transform: scale(1.1); }
 .act-btn:disabled { opacity: .4; transform: none; }
-.card-bonsai { width: 160px; flex-shrink: 0; padding: 14px 12px; border-left: 1px solid #eee; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; transition: background .15s; }
+.card-bonsai { width: 180px; flex-shrink: 0; padding: 14px 12px; border-left: 1px solid #eee; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; transition: background .15s; justify-content: center; }
 .card-bonsai:hover { background: #f8f9fc; }
-.bonsai-thumb { width: 88px; height: 66px; border-radius: 6px; overflow: hidden; flex-shrink: 0; background: #e8eaed; }
-.bonsai-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.bonsai-thumb { width: 130px; height: 100px; border-radius: 6px; overflow: hidden; flex-shrink: 0; background: #111; display: flex; align-items: center; justify-content: center; }
+.bonsai-thumb img { width: 100%; height: 100%; object-fit: contain; }
 .bonsai-info { text-align: center; min-width: 0; }
-.bonsai-label { font-size: 18px; display: block; }
-.bonsai-elements { font-size: 12px; color: #333; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
-.bonsai-meaning { font-size: 10px; color: #888; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; line-height: 1.4; }
+.bonsai-elements { font-size: 11px; color: #333; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
+.bonsai-meaning { font-size: 10px; color: #888; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 4px; line-height: 1.4; }
 .pagination { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 24px; }
 .pagination button { background: #fff; border: 1px solid #ddd; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; }
 .pagination button:disabled { opacity: .4; }
+@media (max-width: 768px) {
+  .main-content { padding: 12px; }
+  .stats-row { grid-template-columns: 1fr; }
+  .video-card { flex-direction: column; }
+  .card-cover { width: 100%; height: 200px; min-height: 180px; }
+  .card-bonsai { width: 100%; border-left: none; border-top: 1px solid #eee; flex-direction: row; padding: 12px 16px; gap: 12px; }
+  .card-bonsai .bonsai-thumb { width: 70px; height: 55px; }
+  .card-bonsai .bonsai-info { text-align: left; }
+  .card-actions { position: absolute; top: 140px; right: 12px; padding: 0; }
+}
 </style>
