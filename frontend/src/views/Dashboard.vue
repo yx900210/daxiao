@@ -63,7 +63,7 @@
             <span class="sect-tag tg-viewpoint">观点</span>{{ v.stock_summary }}
           </p>
           <p class="card-preview" v-if="v.subtitle_preview" :class="{ expanded: isExpanded(v.id, 'subtitle') }">
-            <span class="sect-tag tg-subtitle">字幕</span>{{ isExpanded(v.id, 'subtitle') ? (v.subtitle_preview_full || v.subtitle_preview) : v.subtitle_preview }}<span class="expand-link" @click.stop="toggleExpand(v, 'subtitle')" v-if="hasMore(v)">{{ isExpanded(v.id, 'subtitle') ? '收起▲' : '...展开▼' }}</span>
+            <span class="sect-tag tg-subtitle">字幕</span>{{ isExpanded(v.id, 'subtitle') ? (v.subtitle_preview_full || v.subtitle_preview) : truncate(v.subtitle_preview, 45) }}<span class="expand-link" @click.stop="toggleExpand(v, 'subtitle')" v-if="(v.subtitle_preview || '').length > 45">{{ isExpanded(v.id, 'subtitle') ? '收起▲' : '展开▼' }}</span>
           </p>
           <div class="card-bonsai-text" v-if="v.bonsai_species || v.bonsai_meaning">
             <p class="bonsai-elements" v-if="v.bonsai_species" :class="{ expanded: isExpanded(v.id, 'elements') }">
@@ -184,6 +184,7 @@ export default {
       }
     },
     closePlayer() { this.playingVideo = '' },
+    truncate(text, max) { if (!text || text.length <= max) return text; return text.substring(0, max) + '…' },
     previewBonsai(v) { if (v.bonsai_image) this.previewImg = 'screenshots/' + this.bgRel(v.bonsai_image) },
     bgRel(abs) { return abs ? abs.replace(/.*screenshots\//, '') : '' },
     firstLine(s) { if (!s) return ''; const idx = s.indexOf('\n'); return idx > 0 ? s.substring(0, idx) : s.substring(0, 80) },
@@ -232,7 +233,7 @@ export default {
 .card-meta { font-size: 12px; color: #999; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; }
 .dot { margin: 0 4px; }
 .card-viewpoint { font-size: 14px; color: #4f46e5; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; line-height: 1.6; }
-.card-preview { font-size: 14px; color: #555; line-height: 1.6; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.card-preview { font-size: 14px; color: #555; line-height: 1.6; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; }
 .card-preview.expanded { display: block; -webkit-line-clamp: unset; overflow-y: auto; max-height: 180px; }
 .expand-link { color: #4f46e5; cursor: pointer; font-size: 12px; margin-left: 2px; }
 .expand-link:hover { text-decoration: underline; }
