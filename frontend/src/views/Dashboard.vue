@@ -59,8 +59,8 @@
             <span class="dot" v-if="v.publish_time">·</span>
             <span>❤️ {{ fmtCount(v.like_count) }}</span>
           </div>
-          <p class="card-viewpoint" v-if="v.stock_summary" :class="{ expanded: isExpanded(v.id, 'viewpoint') }">
-            <span class="sect-tag tg-viewpoint">观点</span>{{ isExpanded(v.id, 'viewpoint') ? v.stock_summary : viewpointPreview(v.stock_summary) }}<span class="expand-link" @click.stop="toggleExpand(v, 'viewpoint')" v-if="viewpointMore(v)">{{ isExpanded(v.id, 'viewpoint') ? '收起▲' : '...展开▼' }}</span>
+          <p class="card-viewpoint" v-if="v.stock_summary">
+            <span class="sect-tag tg-viewpoint">观点</span>{{ v.stock_summary }}
           </p>
           <p class="card-preview" v-if="v.subtitle_preview" :class="{ expanded: isExpanded(v.id, 'subtitle') }">
             <span class="sect-tag tg-subtitle">字幕</span>{{ isExpanded(v.id, 'subtitle') ? (v.subtitle_preview_full || v.subtitle_preview) : v.subtitle_preview }}<span class="expand-link" @click.stop="toggleExpand(v, 'subtitle')" v-if="hasMore(v)">{{ isExpanded(v.id, 'subtitle') ? '收起▲' : '...展开▼' }}</span>
@@ -231,8 +231,7 @@ export default {
 .card-title { font-size: 15px; font-weight: 600; line-height: 1.4; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-meta { font-size: 12px; color: #999; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; }
 .dot { margin: 0 4px; }
-.card-viewpoint { font-size: 14px; color: #4f46e5; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card-viewpoint.expanded { display: block; -webkit-line-clamp: unset; }
+.card-viewpoint { font-size: 14px; color: #4f46e5; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; line-height: 1.6; }
 .card-preview { font-size: 14px; color: #555; line-height: 1.6; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-preview.expanded { display: block; -webkit-line-clamp: unset; overflow-y: auto; max-height: 180px; }
 .expand-link { color: #4f46e5; cursor: pointer; font-size: 12px; margin-left: 2px; }
