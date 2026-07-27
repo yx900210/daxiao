@@ -225,12 +225,12 @@ export default {
 .s-pending { background: #999; } .s-processing { background: #3b82f6; }
 .s-screenshotted { background: #f59e0b; } .s-done { background: #22c55e; } .s-failed { background: #ef4444; }
 .card-body { flex: 1; padding: 16px 20px; min-width: 0; }
-.card-title { font-size: 14px; font-weight: 600; line-height: 1.4; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card-meta { font-size: 12px; color: #999; margin-bottom: 6px; }
+.card-title { font-size: 15px; font-weight: 600; line-height: 1.4; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-meta { font-size: 12px; color: #999; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; }
 .dot { margin: 0 4px; }
-.card-viewpoint { font-size: 13px; color: #4f46e5; margin-bottom: 4px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card-preview { font-size: 13px; color: #777; line-height: 1.6; margin-bottom: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card-preview.expanded { display: block; -webkit-line-clamp: unset; overflow-y: auto; max-height: 200px; }
+.card-viewpoint { font-size: 14px; color: #4f46e5; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; line-height: 1.6; }
+.card-preview { font-size: 14px; color: #555; line-height: 1.6; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-preview.expanded { display: block; -webkit-line-clamp: unset; overflow-y: auto; max-height: 180px; }
 .expand-link { color: #4f46e5; cursor: pointer; font-size: 12px; margin-left: 2px; }
 .expand-link:hover { text-decoration: underline; }
 .sect-tag { display: inline-block; padding: 0 5px; border-radius: 3px; font-size: 10px; font-weight: 600; margin-right: 5px; vertical-align: 1px; letter-spacing: 0.5px; }
@@ -252,9 +252,9 @@ export default {
 .card-bonsai:hover { background: #fafbff; }
 .bonsai-thumb { flex: 1; width: 100%; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
 .bonsai-thumb img { width: 100%; height: 100%; object-fit: contain; }
-.card-bonsai-text { margin-top: 6px; padding-top: 6px; border-top: 1px solid #f0f0f0; }
-.card-bonsai-text .bonsai-elements { font-size: 13px; color: #333; line-height: 1.6; margin-bottom: 2px; }
-.card-bonsai-text .bonsai-meaning { font-size: 13px; color: #777; line-height: 1.5; margin: 0; }
+.card-bonsai-text { margin-top: 4px; }
+.card-bonsai-text .bonsai-elements { font-size: 14px; color: #333; line-height: 1.6; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-bonsai-text .bonsai-meaning { font-size: 14px; color: #555; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .img-modal { position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 1001; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .img-modal img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 8px; }
 .pagination { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 24px; }
