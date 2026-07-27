@@ -232,7 +232,7 @@ export default {
 .card-meta { font-size: 12px; color: #999; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; }
 .dot { margin: 0 4px; }
 .card-viewpoint { font-size: 14px; color: #4f46e5; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; line-height: 1.6; }
-.card-preview { font-size: 14px; color: #555; line-height: 1.6; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-preview { font-size: 14px; color: #555; line-height: 1.6; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .card-preview.expanded { display: block; -webkit-line-clamp: unset; overflow-y: auto; max-height: 180px; }
 .expand-link { color: #4f46e5; cursor: pointer; font-size: 12px; margin-left: 2px; }
 .expand-link:hover { text-decoration: underline; }
