@@ -59,18 +59,18 @@
             <span class="dot" v-if="v.publish_time">·</span>
             <span>❤️ {{ fmtCount(v.like_count) }}</span>
           </div>
-          <p class="card-viewpoint" v-if="v.stock_summary">
-            <span class="sect-tag tg-viewpoint">观点</span>{{ viewpointPreview(v.stock_summary) }}
+          <p class="card-viewpoint" v-if="v.stock_summary" :class="{ expanded: isExpanded(v.id, 'viewpoint') }">
+            <span class="sect-tag tg-viewpoint">观点</span>{{ isExpanded(v.id, 'viewpoint') ? v.stock_summary : viewpointPreview(v.stock_summary) }}<span class="expand-link" @click.stop="toggleExpand(v, 'viewpoint')" v-if="viewpointMore(v)">{{ isExpanded(v.id, 'viewpoint') ? '收起▲' : '...展开▼' }}</span>
           </p>
-          <p class="card-preview" v-if="v.subtitle_preview" :class="{ expanded: isExpanded(v.id) }">
-            <span class="sect-tag tg-subtitle">字幕</span>{{ isExpanded(v.id) ? (v.subtitle_preview_full || v.subtitle_preview) : v.subtitle_preview }}<span class="expand-link" @click.stop="toggleExpand(v)" v-if="hasMore(v)">{{ isExpanded(v.id) ? '收起▲' : '...展开▼' }}</span>
+          <p class="card-preview" v-if="v.subtitle_preview" :class="{ expanded: isExpanded(v.id, 'subtitle') }">
+            <span class="sect-tag tg-subtitle">字幕</span>{{ isExpanded(v.id, 'subtitle') ? (v.subtitle_preview_full || v.subtitle_preview) : v.subtitle_preview }}<span class="expand-link" @click.stop="toggleExpand(v, 'subtitle')" v-if="hasMore(v)">{{ isExpanded(v.id, 'subtitle') ? '收起▲' : '...展开▼' }}</span>
           </p>
           <div class="card-bonsai-text" v-if="v.bonsai_species || v.bonsai_meaning">
-            <p class="bonsai-elements" v-if="v.bonsai_species">
-              <span class="sect-tag tg-bonsai">盆景</span>{{ v.bonsai_species }}
+            <p class="bonsai-elements" v-if="v.bonsai_species" :class="{ expanded: isExpanded(v.id, 'elements') }">
+              <span class="sect-tag tg-bonsai">盆景</span>{{ isExpanded(v.id, 'elements') ? v.bonsai_species : (v.bonsai_species || '').substring(0, 60) }}<span class="expand-link" @click.stop="toggleExpand(v, 'elements')" v-if="(v.bonsai_species || '').length > 60">{{ isExpanded(v.id, 'elements') ? '收起▲' : '...展开▼' }}</span>
             </p>
-            <p class="bonsai-meaning" v-if="v.bonsai_meaning">
-              <span class="sect-tag tg-meaning">寓意</span>{{ v.bonsai_meaning.substring(0, 80) }}{{ v.bonsai_meaning.length > 80 ? '...' : '' }}
+            <p class="bonsai-meaning" v-if="v.bonsai_meaning" :class="{ expanded: isExpanded(v.id, 'meaning') }">
+              <span class="sect-tag tg-meaning">寓意</span>{{ isExpanded(v.id, 'meaning') ? v.bonsai_meaning : v.bonsai_meaning.substring(0, 60) }}<span class="expand-link" @click.stop="toggleExpand(v, 'meaning')" v-if="v.bonsai_meaning.length > 60">{{ isExpanded(v.id, 'meaning') ? '收起▲' : '...展开▼' }}</span>
             </p>
           </div>
           <div class="card-tags" v-if="parsedKeywords(v).length">
@@ -163,11 +163,14 @@ export default {
       this.fetchStats(); this.fetchVideos()
     },
     goDetail(id) { this.$router.push(`/video/${id}`) },
+    _key(v, section) { return `${v.id}_${section}` },
     hasMore(v) { return (v.subtitle_preview_full || v.subtitle_preview || '').length > 80 },
-    isExpanded(id) { return this.expandedIds.has(id) },
-    toggleExpand(v) {
-      if (this.expandedIds.has(v.id)) this.expandedIds.delete(v.id)
-      else this.expandedIds.add(v.id)
+    viewpointMore(v) { return (v.stock_summary || '').length > 60 },
+    isExpanded(id, section) { return this.expandedIds.has(`${id}_${section}`) },
+    toggleExpand(v, section) {
+      const key = `${v.id}_${section}`
+      if (this.expandedIds.has(key)) this.expandedIds.delete(key)
+      else this.expandedIds.add(key)
       this.expandedIds = new Set(this.expandedIds)
     },
     viewpointPreview(s) {
@@ -228,7 +231,8 @@ export default {
 .card-title { font-size: 15px; font-weight: 600; line-height: 1.4; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-meta { font-size: 12px; color: #999; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; }
 .dot { margin: 0 4px; }
-.card-viewpoint { font-size: 14px; color: #4f46e5; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; line-height: 1.6; }
+.card-viewpoint { font-size: 14px; color: #4f46e5; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-viewpoint.expanded { display: block; -webkit-line-clamp: unset; }
 .card-preview { font-size: 14px; color: #555; line-height: 1.6; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-preview.expanded { display: block; -webkit-line-clamp: unset; overflow-y: auto; max-height: 180px; }
 .expand-link { color: #4f46e5; cursor: pointer; font-size: 12px; margin-left: 2px; }
@@ -254,7 +258,9 @@ export default {
 .bonsai-thumb img { width: 100%; height: 100%; object-fit: contain; }
 .card-bonsai-text { margin-top: 4px; }
 .card-bonsai-text .bonsai-elements { font-size: 14px; color: #333; line-height: 1.6; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f0f0f0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-bonsai-text .bonsai-elements.expanded { display: block; -webkit-line-clamp: unset; }
 .card-bonsai-text .bonsai-meaning { font-size: 14px; color: #555; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-bonsai-text .bonsai-meaning.expanded { display: block; -webkit-line-clamp: unset; }
 .img-modal { position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 1001; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .img-modal img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 8px; }
 .pagination { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 24px; }
